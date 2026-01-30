@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { uploadExcelData } from '@/app/actions';
+import { FileUp } from 'lucide-react';
 
 export default function FileUpload() {
   const [file, setFile] = useState<File | null>(null);
@@ -43,9 +44,10 @@ export default function FileUpload() {
   };
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>POS 데이터 업로드</CardTitle>
+    <Card className="w-full">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-lg font-bold">POS 매출 업로드</CardTitle>
+        <FileUp className="h-5 w-5 text-slate-500" />
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="space-y-2">

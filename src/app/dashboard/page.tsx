@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { getKpiData, getChartData, getBestSellers, getTrendData, getItemPieChartData, getHourlySalesData } from '@/lib/dashboard-data';
 import SalesLineChart from '@/components/charts/LineChart';
 import PieChartWithFilter from '@/components/charts/PieChartWithFilter';
-import { TrendingUp, TrendingDown } from 'lucide-react';
+import { TrendingUp, TrendingDown, Clock, Calendar, BarChart3, ShoppingBag } from 'lucide-react';
 
 export default async function DashboardPage() {
   const kpiData = await getKpiData();
@@ -24,15 +24,15 @@ export default async function DashboardPage() {
       <div className="grid gap-4 md:grid-cols-3 mb-4">
         <Card>
           <CardHeader>
-            <CardTitle>오늘 총 매출</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">오늘 총 매출</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">₩{formatCurrency(kpiData.todaySales)}</p>
+            <p className="text-2xl font-bold text-slate-900">₩{formatCurrency(kpiData.todaySales)}</p>
           </CardContent>
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>전일 대비</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">전일 대비</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-2">
@@ -49,10 +49,10 @@ export default async function DashboardPage() {
         </Card>
         <Card>
           <CardHeader>
-            <CardTitle>이번 달 누적 매출</CardTitle>
+            <CardTitle className="text-sm font-medium text-muted-foreground">이번 달 누적 매출</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-2xl font-bold">₩{formatCurrency(kpiData.monthTotal)}</p>
+            <p className="text-2xl font-bold text-blue-600">₩{formatCurrency(kpiData.monthTotal)}</p>
           </CardContent>
         </Card>
       </div>
@@ -60,20 +60,20 @@ export default async function DashboardPage() {
       {/* 주별/월별 증감률 Cards - 두 번째 줄 */}
       <div className="grid gap-4 md:grid-cols-2 mb-6">
         <Card>
-          <CardHeader>
-            <CardTitle>주별 매출 증감률</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">주별 매출 분석</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">이번 주</span>
-                <span className="font-semibold">₩{formatCurrency(trendData.thisWeekSales)}</span>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">이번 주</span>
+                <span className="font-semibold text-slate-800">₩{formatCurrency(trendData.thisWeekSales)}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">저번 주</span>
-                <span>₩{formatCurrency(trendData.lastWeekSales)}</span>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">저번 주</span>
+                <span className="text-slate-600">₩{formatCurrency(trendData.lastWeekSales)}</span>
               </div>
-              <div className="flex items-center gap-2 pt-2 border-t">
+              <div className="flex items-center gap-2 pt-2 border-t mt-2">
                 <p className={`text-xl font-bold ${parseFloat(trendData.weeklyChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {trendData.weeklyChange}%
                 </p>
@@ -82,26 +82,27 @@ export default async function DashboardPage() {
                 ) : (
                   <TrendingDown className="text-red-600" size={20} />
                 )}
+                <span className="text-xs text-muted-foreground ml-1">전주 대비</span>
               </div>
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardHeader>
-            <CardTitle>월별 매출 증감률</CardTitle>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-sm font-medium">월별 매출 분석</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-2">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">이번 달</span>
-                <span className="font-semibold">₩{formatCurrency(trendData.thisMonthSales)}</span>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">이번 달</span>
+                <span className="font-semibold text-slate-800">₩{formatCurrency(trendData.thisMonthSales)}</span>
               </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-gray-500">저번 달</span>
-                <span>₩{formatCurrency(trendData.lastMonthSales)}</span>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-500">저번 달</span>
+                <span className="text-slate-600">₩{formatCurrency(trendData.lastMonthSales)}</span>
               </div>
-              <div className="flex items-center gap-2 pt-2 border-t">
+              <div className="flex items-center gap-2 pt-2 border-t mt-2">
                 <p className={`text-xl font-bold ${parseFloat(trendData.monthlyChange) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {trendData.monthlyChange}%
                 </p>
@@ -110,66 +111,91 @@ export default async function DashboardPage() {
                 ) : (
                   <TrendingDown className="text-red-600" size={20} />
                 )}
+                <span className="text-xs text-muted-foreground ml-1">전월 대비</span>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* 중간 영역: 차트 */}
+      {/* 분석 차트 영역 */}
       <div className="grid gap-6 md:grid-cols-2 mb-6">
-        {/* 오늘 시간대별 매출 차트 (신규) */}
+        {/* 1. 시간대별 매출 분석 */}
         <Card>
-          <CardHeader>
-            <CardTitle>오늘 시간대별 매출</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base font-semibold">오늘 시간대별 매출 추이</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <SalesLineChart data={hourlyData} xKey="hour" yKey="sales" />
+            <div className="h-[300px] w-full">
+              <SalesLineChart data={hourlyData} xKey="hour" yKey="sales" />
+            </div>
           </CardContent>
         </Card>
 
-        {/* 일별 매출 추이 (기존 유지) */}
+        {/* 2. 일별 매출 추이 */}
         <Card>
-          <CardHeader>
-            <CardTitle>일별 매출 추이 (최근 30일)</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base font-semibold">최근 30일 매출 흐름</CardTitle>
+            <Calendar className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <SalesLineChart data={chartData.lineChartData} xKey="date" yKey="sales" />
+            <div className="h-[300px] w-full">
+              <SalesLineChart data={chartData.lineChartData} xKey="date" yKey="sales" />
+            </div>
           </CardContent>
         </Card>
       </div>
       
       {/* 하단 영역: 상품 분석 */}
       <div className="grid gap-6 md:grid-cols-2">
-        {/* 상품별 매출 비중 (기타 제외 상위 항목만) */}
+        {/* 3. 상품별 매출 비중 */}
         <Card>
-          <CardHeader>
-            <CardTitle>상품별 매출 비중 (TOP 10)</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base font-semibold">상품별 매출 비중 (TOP 10)</CardTitle>
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <PieChartWithFilter data={itemPieData} />
+            <div className="h-[350px] w-full">
+              <PieChartWithFilter data={itemPieData} />
+            </div>
           </CardContent>
         </Card>
 
-        {/* 베스트 메뉴 TOP 5 (기존 유지) */}
+        {/* 4. 베스트 메뉴 순위 */}
         <Card>
-          <CardHeader>
-            <CardTitle>베스트 메뉴 TOP 5 (판매량 기준)</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0">
+            <CardTitle className="text-base font-semibold">인기 상품 TOP 5</CardTitle>
+            <ShoppingBag className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <ul className="space-y-2">
-              {bestSellers.map((item, index) => (
-                <li key={item.name} className="flex justify-between items-center p-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded">
-                  <span className="flex items-center gap-2">
-                    <span className="flex items-center justify-center w-6 h-6 bg-blue-100 text-blue-800 rounded-full text-sm font-bold">
-                      {index + 1}
-                    </span>
-                    {item.name}
-                  </span>
-                  <span className="font-semibold">{item.quantity}개</span>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-4 py-2">
+              {bestSellers.length > 0 ? (
+                bestSellers.map((item, index) => (
+                  <div key={item.name} className="flex justify-between items-center p-3 bg-slate-50 dark:bg-slate-900 rounded-lg hover:shadow-sm transition-shadow border border-slate-100">
+                    <div className="flex items-center gap-3">
+                      <span className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold ${
+                        index === 0 ? 'bg-yellow-100 text-yellow-700' : 
+                        index === 1 ? 'bg-slate-200 text-slate-700' :
+                        index === 2 ? 'bg-orange-100 text-orange-700' :
+                        'bg-blue-50 text-blue-600'
+                      }`}>
+                        {index + 1}
+                      </span>
+                      <span className="font-medium text-sm text-slate-700">{item.name}</span>
+                    </div>
+                    <div className="flex flex-col items-end">
+                      <span className="font-bold text-blue-600 text-sm">{item.quantity}개</span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground italic">
+                  <ShoppingBag size={48} className="mb-2 opacity-20" />
+                  <p>판매 데이터가 없습니다.</p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       </div>

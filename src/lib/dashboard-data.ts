@@ -94,18 +94,16 @@ export async function getChartData() {
 
 // 베스트 메뉴 TOP 5를 가져오는 함수
 export async function getBestSellers() {
-  const thirtyDaysAgoStr = format(subDays(new Date(), 30), 'yyyy-MM-dd');
-  const todayStr = getToday();
+  const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
 
   const { data, error } = await supabase
-    .from('sales_records')
+    .from('sales_items')
     .select('item_name, quantity')
-    .gte('sale_date', thirtyDaysAgoStr)
-    .lte('sale_date', todayStr);
+    .gte('created_at', thirtyDaysAgo);
 
   if (error) {
     console.error('Error fetching best sellers:', error);
-    throw new Error('베스트 메뉴 데이터를 가져오는 데 실패했습니다.');
+    return [];
   }
 
   const itemTotals = data.reduce((acc, record) => {
@@ -120,32 +118,28 @@ export async function getBestSellers() {
   return sortedItems.map(([name, quantity]) => ({ name, quantity }));
 }
 
-// 누적 데이터 조회 함수들
+// 누적 데이터 조회 함수들 (sales_orders 기준)
 export async function getAllSalesRecords(startDate?: string, endDate?: string) {
   let query = supabase
-    .from('sales_records')
+    .from('sales_orders')
     .select('*')
-    .order('sale_date', { ascending: false })
-    .order('payment_time', { ascending: false });
+    .order('order_at', { ascending: false });
 
   if (startDate) {
-    query = query.gte('sale_date', startDate);
+    query = query.gte('order_at', `${startDate}T00:00:00+09:00`);
   }
   if (endDate) {
-    query = query.lte('sale_date', endDate);
+    query = query.lte('order_at', `${endDate}T23:59:59+09:00`);
   }
 
-  // 기본적으로 최근 1000개만 가져오도록 제한 (성능 최적화)
-  // 날짜 필터가 없을 때 전체 데이터를 가져오는 것은 위험함
   if (!startDate && !endDate) {
-    query = query.limit(1000);
+    query = query.limit(500);
   }
 
   const { data, error } = await query;
-
   if (error) {
     console.error('Error fetching all sales records:', error);
-    throw new Error('전체 매출 레코드를 가져오는 데 실패했습니다.');
+    return [];
   }
 
   return data;
@@ -181,28 +175,28 @@ export async function getCategorySummary() {
 
 export async function getItemSummary(startDate?: string, endDate?: string) {
   let query = supabase
-    .from('sales_records')
-    .select('item_name, net_amount, quantity');
+    .from('sales_items')
+    .select('item_name, total_amount, quantity, created_at');
 
   if (startDate) {
-    query = query.gte('sale_date', startDate);
+    query = query.gte('created_at', `${startDate}T00:00:00+09:00`);
   }
   if (endDate) {
-    query = query.lte('sale_date', endDate);
+    query = query.lte('created_at', `${endDate}T23:59:59+09:00`);
   }
 
   const { data, error } = await query;
 
   if (error) {
     console.error('Error fetching item summary:', error);
-    throw new Error('상품별 데이터를 가져오는 데 실패했습니다.');
+    return [];
   }
 
   const itemMap = data.reduce((acc, record) => {
     if (!acc[record.item_name]) {
       acc[record.item_name] = { totalSales: 0, totalQuantity: 0 };
     }
-    acc[record.item_name].totalSales += record.net_amount;
+    acc[record.item_name].totalSales += record.total_amount;
     acc[record.item_name].totalQuantity += record.quantity;
     return acc;
   }, {} as { [key: string]: { totalSales: number; totalQuantity: number } });
@@ -291,69 +285,51 @@ export async function getTrendData() {
 // 오늘 시간대별 매출 데이터
 export async function getHourlySalesData() {
   const todayStr = getToday();
+  const startOfDay = `${todayStr}T00:00:00+09:00`;
+  const endOfDay = `${todayStr}T23:59:59+09:00`;
 
   const { data, error } = await supabase
-    .from('sales_records')
-    .select('payment_time, net_amount')
-    .eq('sale_date', todayStr)
-    .not('payment_time', 'is', null);
+    .from('sales_orders')
+    .select('order_at, net_amount')
+    .gte('order_at', startOfDay)
+    .lte('order_at', endOfDay);
 
   if (error) {
     console.error('Error fetching hourly sales data:', error);
-    // 에러 발생 시 빈 데이터 반환 (차트 렌더링 중단 방지)
-    return Array.from({ length: 24 }, (_, i) => ({
-      hour: `${i}시`,
-      sales: 0
-    }));
+    return Array.from({ length: 24 }, (_, i) => ({ hour: `${i}시`, sales: 0 }));
   }
 
-  // 0시 ~ 23시 초기화
-  const hourlySales = Array.from({ length: 24 }, (_, i) => ({
-    hour: `${i}시`,
-    sales: 0
-  }));
+  const hourlySales = Array.from({ length: 24 }, (_, i) => ({ hour: `${i}시`, sales: 0 }));
 
-  data.forEach(record => {
-    if (record.payment_time) {
-      // payment_time 형식: 'HH:MM:SS'
-      const hour = parseInt(record.payment_time.split(':')[0], 10);
-      if (hour >= 0 && hour < 24) {
-        hourlySales[hour].sales += record.net_amount;
-      }
+  data.forEach(order => {
+    const hour = new Date(order.order_at).getHours();
+    if (hour >= 0 && hour < 24) {
+      hourlySales[hour].sales += order.net_amount;
     }
   });
 
   return hourlySales;
 }
 
-// 상품별 파이차트 데이터 (상위 10개만 표시, 기타 제외)
+// 상품별 파이차트 데이터 (최근 30일 상위 10개)
 export async function getItemPieChartData() {
-  const thirtyDaysAgoStr = format(subDays(new Date(), 30), 'yyyy-MM-dd');
-  const todayStr = getToday();
+  const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
 
   const { data, error } = await supabase
-    .from('sales_records')
-    .select('item_name, net_amount')
-    .gte('sale_date', thirtyDaysAgoStr)
-    .lte('sale_date', todayStr);
+    .from('sales_items')
+    .select('item_name, total_amount')
+    .gte('created_at', thirtyDaysAgo);
 
   if (error) {
     console.error('Error fetching item pie chart data:', error);
-    throw new Error('상품별 데이터를 가져오는 데 실패했습니다.');
+    return [];
   }
 
   const itemTotals = data.reduce((acc, record) => {
-    acc[record.item_name] = (acc[record.item_name] || 0) + record.net_amount;
+    acc[record.item_name] = (acc[record.item_name] || 0) + record.total_amount;
     return acc;
   }, {} as { [key: string]: number });
 
-  const sortedItems = Object.entries(itemTotals)
-    .sort(([, a], [, b]) => b - a);
-
-  // 상위 10개만 추출 (기타 항목 제외)
-  const top10 = sortedItems.slice(0, 10);
-
-  const pieData = top10.map(([name, value]) => ({ name, value }));
-
-  return pieData;
+  const sortedItems = Object.entries(itemTotals).sort(([, a], [, b]) => b - a);
+  return sortedItems.slice(0, 10).map(([name, value]) => ({ name, value }));
 }

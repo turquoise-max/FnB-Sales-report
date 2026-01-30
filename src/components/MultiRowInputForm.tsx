@@ -5,24 +5,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { addMultipleManualInputs } from '@/app/actions';
-import { Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Edit3 } from 'lucide-react';
 
 interface ManualInputRow {
   id: string;
   description: string;
-  amount: string;
+  grossAmount: string;
+  netAmount: string;
 }
 
 export default function MultiRowInputForm() {
   const [date, setDate] = useState('');
   const [rows, setRows] = useState<ManualInputRow[]>([
-    { id: crypto.randomUUID(), description: '', amount: '' },
+    { id: crypto.randomUUID(), description: '', grossAmount: '', netAmount: '' },
   ]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const addRow = () => {
-    setRows([...rows, { id: crypto.randomUUID(), description: '', amount: '' }]);
+    setRows([...rows, { id: crypto.randomUUID(), description: '', grossAmount: '', netAmount: '' }]);
   };
 
   const removeRow = (id: string) => {
@@ -31,7 +32,7 @@ export default function MultiRowInputForm() {
     }
   };
 
-  const updateRow = (id: string, field: 'description' | 'amount', value: string) => {
+  const updateRow = (id: string, field: keyof ManualInputRow, value: string) => {
     setRows(
       rows.map((row) =>
         row.id === id ? { ...row, [field]: value } : row
@@ -47,9 +48,9 @@ export default function MultiRowInputForm() {
       return;
     }
 
-    const validRows = rows.filter((row) => row.description && row.amount);
+    const validRows = rows.filter((row) => row.description && (row.grossAmount || row.netAmount));
     if (validRows.length === 0) {
-      setMessage({ type: 'error', text: '최소 1개의 항목을 입력해주세요.' });
+      setMessage({ type: 'error', text: '최소 1개의 항목과 금액을 입력해주세요.' });
       return;
     }
 
@@ -68,7 +69,7 @@ export default function MultiRowInputForm() {
       setMessage({ type: 'success', text: result.success! });
       // 성공 시 폼 초기화
       setDate('');
-      setRows([{ id: crypto.randomUUID(), description: '', amount: '' }]);
+      setRows([{ id: crypto.randomUUID(), description: '', grossAmount: '', netAmount: '' }]);
     }
 
     setLoading(false);
@@ -76,8 +77,9 @@ export default function MultiRowInputForm() {
 
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle>영업 외 매출 수기 입력</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle className="text-lg font-bold">영업 외 매출 수기 입력</CardTitle>
+        <Edit3 className="h-5 w-5 text-amber-500" />
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -111,8 +113,8 @@ export default function MultiRowInputForm() {
 
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {rows.map((row, index) => (
-                <div key={row.id} className="flex gap-2 items-center">
-                  <div className="flex-1">
+                <div key={row.id} className="flex gap-2 items-start">
+                  <div className="flex-[2]">
                     <Input
                       type="text"
                       placeholder="항목명 (예: 케이터링)"
@@ -124,9 +126,18 @@ export default function MultiRowInputForm() {
                   <div className="flex-1">
                     <Input
                       type="number"
-                      placeholder="금액"
-                      value={row.amount}
-                      onChange={(e) => updateRow(row.id, 'amount', e.target.value)}
+                      placeholder="총매출"
+                      value={row.grossAmount}
+                      onChange={(e) => updateRow(row.id, 'grossAmount', e.target.value)}
+                      disabled={loading}
+                    />
+                  </div>
+                  <div className="flex-1">
+                    <Input
+                      type="number"
+                      placeholder="실매출"
+                      value={row.netAmount}
+                      onChange={(e) => updateRow(row.id, 'netAmount', e.target.value)}
                       disabled={loading}
                     />
                   </div>
@@ -145,7 +156,7 @@ export default function MultiRowInputForm() {
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? '저장 중...' : `${rows.filter(r => r.description && r.amount).length}개 항목 저장하기`}
+            {loading ? '저장 중...' : `${rows.filter(r => r.description && (r.grossAmount || r.netAmount)).length}개 항목 저장하기`}
           </Button>
 
           {message && (

@@ -28,8 +28,10 @@ export default async function DataViewPage({ searchParams }: PageProps) {
   const dailySummaries = await getAllDailySummaries(startDate, endDate);
   const itemSummary = await getItemSummary(startDate, endDate);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ko-KR').format(amount);
+  const formatCurrency = (amount: any) => {
+    const val = typeof amount === 'number' ? amount : parseInt(String(amount), 10);
+    if (isNaN(val)) return '0';
+    return new Intl.NumberFormat('ko-KR').format(val);
   };
 
   const formatDate = (dateStr: string) => {
@@ -54,20 +56,18 @@ export default async function DataViewPage({ searchParams }: PageProps) {
         <TabsContent value="all">
           <Card>
             <CardHeader>
-              <CardTitle>전체 매출 레코드 ({allRecords.length}건)</CardTitle>
+              <CardTitle>전체 주문 내역 ({allRecords.length}건)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>날짜/시간</TableHead>
-                      <TableHead>영수증번호</TableHead>
-                      <TableHead>상품명</TableHead>
-                      <TableHead className="text-right">수량</TableHead>
-                      <TableHead className="text-right">총매출액</TableHead>
-                      <TableHead className="text-right">할인액</TableHead>
-                      <TableHead className="text-right">실매출액</TableHead>
+                      <TableHead>주문 일시</TableHead>
+                      <TableHead>주문 번호</TableHead>
+                      <TableHead>채널</TableHead>
+                      <TableHead className="text-right">총 결제액</TableHead>
+                      <TableHead className="text-right">실 매출액</TableHead>
                       <TableHead className="text-center">상태</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -75,33 +75,27 @@ export default async function DataViewPage({ searchParams }: PageProps) {
                     {allRecords.map((record) => (
                       <TableRow key={record.id}>
                         <TableCell>
-                          <div className="flex flex-col">
-                            <span>{formatDate(record.sale_date)}</span>
-                            <span className="text-xs text-gray-500">{record.payment_time}</span>
-                          </div>
+                          <span>{new Date(record.order_at).toLocaleString('ko-KR')}</span>
                         </TableCell>
-                        <TableCell>{record.receipt_number || '-'}</TableCell>
-                        <TableCell>{record.item_name}</TableCell>
-                        <TableCell className="text-right">{record.quantity}</TableCell>
-                        <TableCell className="text-right">₩{formatCurrency(record.total_amount)}</TableCell>
-                        <TableCell className="text-right">₩{formatCurrency(record.discount_amount)}</TableCell>
-                        <TableCell className={`text-right font-semibold ${record.is_refund ? 'text-red-500' : ''}`}>
+                        <TableCell className="font-mono text-xs">{record.order_number}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            record.channel === 'BAEMIN' ? 'bg-teal-100 text-teal-800' :
+                            record.channel === 'COUPANG' ? 'bg-pink-100 text-pink-800' :
+                            record.channel === 'POS' ? 'bg-blue-100 text-blue-800' :
+                            'bg-slate-100 text-slate-800'
+                          }`}>
+                            {record.channel}
+                          </span>
+                        </TableCell>
+                        <TableCell className="text-right">₩{formatCurrency(record.gross_amount)}</TableCell>
+                        <TableCell className={`text-right font-bold ${record.is_refund ? 'text-red-500' : 'text-blue-600'}`}>
                           ₩{formatCurrency(record.net_amount)}
                         </TableCell>
                         <TableCell className="text-center">
-                          {record.is_refund ? (
-                            <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200">
+                          {record.is_refund && (
+                            <span className="px-2 py-1 rounded-full text-xs bg-red-100 text-red-800">
                               반품
-                            </span>
-                          ) : (
-                            <span
-                              className={`px-2 py-1 rounded-full text-xs ${
-                                record.source === 'POS'
-                                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200'
-                                  : 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                              }`}
-                            >
-                              {record.source}
                             </span>
                           )}
                         </TableCell>
@@ -118,26 +112,55 @@ export default async function DataViewPage({ searchParams }: PageProps) {
         <TabsContent value="daily">
           <Card>
             <CardHeader>
-              <CardTitle>일별 매출 요약 ({dailySummaries.length}일)</CardTitle>
+              <CardTitle>일별 채널별 분석 ({dailySummaries.length}일)</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>날짜</TableHead>
-                      <TableHead className="text-right">총 매출</TableHead>
-                      <TableHead className="text-right">POS 매출</TableHead>
-                      <TableHead className="text-right">수기 매출</TableHead>
+                      <TableHead className="min-w-[120px]">날짜</TableHead>
+                      <TableHead className="text-right min-w-[150px]">전체 합계 (실/총)</TableHead>
+                      <TableHead className="text-right min-w-[120px]">POS (실/총)</TableHead>
+                      <TableHead className="text-right min-w-[120px]">배민 (실/총)</TableHead>
+                      <TableHead className="text-right min-w-[120px]">쿠팡 (실/총)</TableHead>
+                      <TableHead className="text-right min-w-[120px]">수기 (실/총)</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {dailySummaries.map((summary) => (
                       <TableRow key={summary.sale_date}>
                         <TableCell className="font-medium">{formatDate(summary.sale_date)}</TableCell>
-                        <TableCell className="text-right font-semibold">₩{formatCurrency(summary.total_sales)}</TableCell>
-                        <TableCell className="text-right">₩{formatCurrency(summary.pos_sales)}</TableCell>
-                        <TableCell className="text-right">₩{formatCurrency(summary.manual_sales)}</TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-col">
+                            <span className="font-bold text-blue-600 text-sm">₩{formatCurrency(summary.total_sales)}</span>
+                            <span className="text-[10px] text-gray-400 font-normal">₩{formatCurrency(summary.total_gross)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-semibold">₩{formatCurrency(summary.pos_sales)}</span>
+                            <span className="text-[10px] text-gray-400">₩{formatCurrency(summary.pos_gross)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right text-teal-600">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-semibold">₩{formatCurrency(summary.baemin_sales)}</span>
+                            <span className="text-[10px] text-teal-400 opacity-70">₩{formatCurrency(summary.baemin_gross)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right text-pink-600">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-semibold">₩{formatCurrency(summary.coupang_sales)}</span>
+                            <span className="text-[10px] text-pink-400 opacity-70">₩{formatCurrency(summary.coupang_gross)}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-right text-amber-600">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-semibold">₩{formatCurrency(summary.manual_sales)}</span>
+                            <span className="text-[10px] text-amber-400 opacity-70">₩{formatCurrency(summary.manual_gross)}</span>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
