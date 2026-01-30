@@ -15,6 +15,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DateRangePicker } from '@/components/DateRangePicker';
 
+export const dynamic = 'force-dynamic';
+
 interface PageProps {
   searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
 }

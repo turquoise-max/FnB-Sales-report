@@ -4,6 +4,8 @@ import SalesLineChart from '@/components/charts/LineChart';
 import PieChartWithFilter from '@/components/charts/PieChartWithFilter';
 import { TrendingUp, TrendingDown, Clock, Calendar, BarChart3, ShoppingBag } from 'lucide-react';
 
+export const dynamic = 'force-dynamic';
+
 export default async function DashboardPage() {
   const kpiData = await getKpiData();
   const chartData = await getChartData();
