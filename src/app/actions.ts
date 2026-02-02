@@ -16,6 +16,8 @@ interface SalesOrder {
 
 interface SalesItem {
   order_id?: string;
+  sale_date: string;
+  order_at: string;
   item_name: string;
   quantity: number;
   unit_price: number;
@@ -238,7 +240,9 @@ export async function uploadExcelData(formData: FormData) {
       item_name: itemName.trim(),
       quantity,
       unit_price: Math.round(totalAmount / quantity),
-      total_amount: totalAmount
+      total_amount: totalAmount,
+      sale_date: saleDate,
+      order_at: `${saleDate}T${paymentTime}+09:00`
     });
   }
 
@@ -357,36 +361,66 @@ export async function uploadCoupangExcel(formData: FormData) {
     const ordersMap = new Map<string, { order: SalesOrder; items: SalesItem[] }>();
     const saleDates = new Set<string>();
 
-    dataRows.forEach(row => {
+    dataRows.forEach((row, index) => {
       const orderNo = String(row[colMap.orderNo]).trim();
       if (!orderNo || orderNo === 'undefined' || orderNo === 'null' || orderNo === '주문번호') return;
 
       const { date, time } = formatExcelDateTime(row[colMap.date], row[colMap.time]);
       const menuStr = String(row[colMap.menu] || '');
-      const grossAmount = parseInt(String(row[colMap.payAmount]).replace(/,/g, '')) || 0;
-      const settleAmount = parseInt(String(row[colMap.settleAmount]).replace(/,/g, '')) || 0;
-      const refundAmount = parseInt(String(row[colMap.refundAmount]).replace(/,/g, '')) || 0;
+      
+      const parseCoupangAmount = (val: any) => {
+        if (typeof val === 'number') return val;
+        const cleaned = String(val || '0').replace(/,/g, '').trim();
+        return parseInt(cleaned, 10) || 0;
+      };
+
+      const grossAmount = parseCoupangAmount(row[colMap.payAmount]);
+      const settleAmount = parseCoupangAmount(row[colMap.settleAmount]);
+      const refundAmount = parseCoupangAmount(row[colMap.refundAmount]);
       const netAmount = settleAmount + refundAmount;
 
       if (!date || date === 'undefined') return;
       saleDates.add(date);
 
-      if (!ordersMap.has(orderNo)) {
-        ordersMap.set(orderNo, {
+      // UPSERT 충돌을 근본적으로 피하기 위해 주문번호로만 그룹화 (날짜/시간이 동일한 여러 행 합산)
+      // 단, 취소 데이터가 날짜가 다를 수 있으므로 orderNo만 사용하되
+      // Map에서 하나로 합쳐서 최종 1개 레코드만 생성
+      const orderKey = orderNo; 
+
+      if (ordersMap.has(orderKey)) {
+        const entry = ordersMap.get(orderKey)!;
+        entry.order.gross_amount += grossAmount;
+        entry.order.net_amount += netAmount;
+        entry.order.is_refund = entry.order.net_amount <= 0;
+        
+        const newItems = menuStr.split(',').map(m => ({ 
+          item_name: m.trim(), 
+          quantity: netAmount < 0 ? -1 : 1,
+          unit_price: 0, 
+          total_amount: grossAmount,
+          sale_date: date,
+          order_at: `${date}T${time}+09:00`
+        })).filter(item => item.item_name !== '');
+        entry.items.push(...newItems);
+      } else {
+        ordersMap.set(orderKey, {
           order: {
             order_number: orderNo,
             channel: 'COUPANG',
             order_at: `${date}T${time}+09:00`,
             gross_amount: grossAmount,
             net_amount: netAmount,
+            is_refund: netAmount <= 0,
             raw_data: row
           },
           items: menuStr.split(',').map(m => ({ 
             item_name: m.trim(), 
-            quantity: 1, 
+            quantity: netAmount < 0 ? -1 : 1,
             unit_price: 0, 
-            total_amount: 0 
-          }))
+            total_amount: grossAmount,
+            sale_date: date,
+            order_at: `${date}T${time}+09:00`
+          })).filter(item => item.item_name !== '')
         });
       }
     });
@@ -466,7 +500,9 @@ export async function addMultipleManualInputs(formData: FormData) {
             item_name: row.description,
             quantity: 1,
             unit_price: itemGross,
-            total_amount: itemGross
+            total_amount: itemGross,
+            sale_date: saleDate,
+            order_at: `${saleDate}T12:00:00+09:00`
         };
     });
 

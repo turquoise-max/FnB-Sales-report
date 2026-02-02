@@ -2,12 +2,12 @@ import { supabase } from './supabaseClient';
 import { startOfMonth, subDays, format, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 
 // 오늘 날짜를 'YYYY-MM-DD' 형식으로 가져오는 헬퍼 함수
-const getToday = () => format(new Date(), 'yyyy-MM-dd');
+const getToday = (date: Date = new Date()) => format(date, 'yyyy-MM-dd');
 
 // KPI 카드 데이터를 가져오는 함수
-export async function getKpiData() {
-  const todayStr = getToday();
-  const yesterdayStr = format(subDays(new Date(), 1), 'yyyy-MM-dd');
+export async function getKpiData(date: Date = new Date()) {
+  const todayStr = getToday(date);
+  const yesterdayStr = format(subDays(date, 1), 'yyyy-MM-dd');
   const startOfMonthStr = format(startOfMonth(new Date()), 'yyyy-MM-dd');
 
   // 1. 오늘 총 매출
@@ -68,10 +68,9 @@ export async function getKpiData() {
 }
 
 // 차트 데이터를 가져오는 함수
-export async function getChartData() {
-  const today = new Date();
-  const thirtyDaysAgoStr = format(subDays(today, 30), 'yyyy-MM-dd');
-  const todayStr = getToday();
+export async function getChartData(date: Date = new Date()) {
+  const thirtyDaysAgoStr = format(subDays(date, 30), 'yyyy-MM-dd');
+  const todayStr = getToday(date);
 
   // 1. 최근 30일 일별 매출 추이
   const { data: dailySales, error: dailySalesError } = await supabase
@@ -99,13 +98,15 @@ export async function getChartData() {
 }
 
 // 베스트 메뉴 TOP 5를 가져오는 함수
-export async function getBestSellers() {
-  const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+export async function getBestSellers(date: Date = new Date()) {
+  const startOfDay = `${getToday(date)}T00:00:00+09:00`;
+  const endOfDay = `${getToday(date)}T23:59:59+09:00`;
 
   const { data, error } = await supabase
     .from('sales_items')
     .select('item_name, quantity')
-    .gte('created_at', thirtyDaysAgo);
+    .gte('created_at', startOfDay)
+    .lte('created_at', endOfDay);
 
   if (error) {
     console.error('Error fetching best sellers:', error);
@@ -217,8 +218,8 @@ export async function getItemSummary(startDate?: string, endDate?: string) {
 }
 
 // 주별 및 월별 증감률 계산
-export async function getTrendData() {
-  const today = new Date();
+export async function getTrendData(date: Date = new Date()) {
+  const today = date;
   
   // 이번 주
   const thisWeekStart = format(startOfWeek(today, { weekStartsOn: 1 }), 'yyyy-MM-dd');
@@ -289,16 +290,17 @@ export async function getTrendData() {
 }
 
 // 오늘 시간대별 매출 데이터
-export async function getHourlySalesData() {
-  const todayStr = getToday();
-  const startOfDay = `${todayStr}T00:00:00+09:00`;
-  const endOfDay = `${todayStr}T23:59:59+09:00`;
+export async function getHourlySalesData(date: Date = new Date()) {
+  const todayStr = getToday(date);
+  // UTC 기준으로 변환하여 조회 (KST 00:00:00은 UTC 이전 날 15:00:00)
+  const startKST = new Date(`${todayStr}T00:00:00+09:00`);
+  const endKST = new Date(`${todayStr}T23:59:59+09:00`);
 
   const { data, error } = await supabase
     .from('sales_orders')
     .select('order_at, net_amount')
-    .gte('order_at', startOfDay)
-    .lte('order_at', endOfDay);
+    .gte('order_at', startKST.toISOString())
+    .lte('order_at', endKST.toISOString());
 
   if (error) {
     console.error('Error fetching hourly sales data:', error);
@@ -308,7 +310,9 @@ export async function getHourlySalesData() {
   const hourlySales = Array.from({ length: 24 }, (_, i) => ({ hour: `${i}시`, sales: 0 }));
 
   data.forEach(order => {
-    const hour = new Date(order.order_at).getHours();
+    // order_at이 UTC이므로 KST로 변환하여 시간 추출
+    const kstDate = new Date(order.order_at);
+    const hour = kstDate.getHours();
     if (hour >= 0 && hour < 24) {
       hourlySales[hour].sales += order.net_amount;
     }
@@ -317,14 +321,16 @@ export async function getHourlySalesData() {
   return hourlySales;
 }
 
-// 상품별 파이차트 데이터 (최근 30일 상위 10개)
-export async function getItemPieChartData() {
-  const thirtyDaysAgo = subDays(new Date(), 30).toISOString();
+// 상품별 파이차트 데이터 (해당 날짜 상위 10개)
+export async function getItemPieChartData(date: Date = new Date()) {
+  const startOfDay = `${getToday(date)}T00:00:00+09:00`;
+  const endOfDay = `${getToday(date)}T23:59:59+09:00`;
 
   const { data, error } = await supabase
     .from('sales_items')
     .select('item_name, total_amount')
-    .gte('created_at', thirtyDaysAgo);
+    .gte('created_at', startOfDay)
+    .lte('created_at', endOfDay);
 
   if (error) {
     console.error('Error fetching item pie chart data:', error);

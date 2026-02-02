@@ -122,6 +122,26 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
         // 2. 주문 내역 페이지 이동
         console.log(`[Baemin] 2. 주문 내역 페이지 이동...`);
         await page.goto("https://self.baemin.com/orders/history", { waitUntil: 'domcontentloaded', timeout: 30000 });
+        await page.waitForTimeout(3000); // 팝업 대기
+
+        // 팝업 제거 (오늘 하루 보지 않기 등)
+        try {
+            const popupCloseBtn = page.locator('span').filter({ hasText: "오늘 하루 보지 않기" }).first();
+            if (await popupCloseBtn.isVisible()) {
+                console.log(`[Baemin] 팝업 제거 시도...`);
+                await popupCloseBtn.click({ force: true });
+                await page.waitForTimeout(1000);
+            }
+            
+            // 일반적인 닫기 버튼(X)도 시도
+            const genericCloseBtn = page.locator('button[class*="close"], [class*="CloseButton"]').first();
+            if (await genericCloseBtn.isVisible()) {
+                await genericCloseBtn.click({ force: true });
+                await page.waitForTimeout(500);
+            }
+        } catch (e: any) {
+            console.log(`[Baemin] 팝업 제거 건너뜀: ${e.message}`);
+        }
         
         // 페이지 내 핵심 요소가 보일 때까지 대기 (로딩 보장)
         const dateTrigger = page.locator('button').filter({ hasText: /날짜|기간|조회기간/ }).first();
@@ -274,7 +294,9 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
                     quantity: menuItem.quantity,
                     unit_price: Math.round(menuItem.totalPrice / menuItem.quantity),
                     total_amount: menuItem.totalPrice,
-                    options_text: optionsText || null
+                    options_text: optionsText || null,
+                    sale_date: orderDate,
+                    order_at: `${orderDateTime}+09:00`
                 };
             });
 

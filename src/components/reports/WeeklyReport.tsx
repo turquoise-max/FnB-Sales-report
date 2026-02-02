@@ -1,6 +1,7 @@
 import { getWeeklyReportData } from '@/lib/reports-data';
 import ReportCard from './ReportCard';
 import SalesLineChart from '@/components/charts/LineChart';
+import { formatCurrency } from '@/lib/utils';
 
 interface Props {
   date: Date;
@@ -9,35 +10,58 @@ interface Props {
 export default async function WeeklyReport({ date }: Props) {
   const data = await getWeeklyReportData(date);
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('ko-KR').format(amount);
-  };
-
   return (
     <ReportCard title="주간 매출 리포트" date={data.period}>
       <div className="space-y-6">
         {/* 요약 */}
         <div className="grid grid-cols-3 gap-4">
           <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <p className="text-sm text-gray-500">이번 주 매출</p>
+            <p className="text-sm text-gray-500 font-medium">이번 주 매출</p>
             <p className="text-xl font-bold">₩{formatCurrency(data.totalSales)}</p>
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <p className="text-sm text-gray-500">일평균 매출</p>
+            <p className="text-sm text-gray-500 font-medium">일평균 매출</p>
             <p className="text-xl font-bold">₩{formatCurrency(data.dailyAvg)}</p>
           </div>
           <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <p className="text-sm text-gray-500">전주 대비</p>
-            <p className={`text-xl font-bold ${parseFloat(data.growthRate) >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <p className="text-sm text-gray-500 font-medium">전주 대비</p>
+            <p
+              className={`text-xl font-bold ${
+                parseFloat(data.growthRate) >= 0 ? 'text-green-600' : 'text-red-600'
+              }`}
+            >
               {data.growthRate}%
             </p>
           </div>
         </div>
 
+        {/* 채널별 매출 상세 */}
+        <div className="space-y-3">
+          <h3 className="font-semibold text-lg border-b pb-2">채널별 매출 현황</h3>
+          <ul className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+            <li className="flex justify-between">
+              <span className="text-gray-500">POS 매출</span>
+              <span className="font-medium">₩{formatCurrency(data.channelSales.posSales)}</span>
+            </li>
+            <li className="flex justify-between">
+              <span className="text-gray-500">배달의민족</span>
+              <span className="font-medium">₩{formatCurrency(data.channelSales.baeminSales)}</span>
+            </li>
+            <li className="flex justify-between">
+              <span className="text-gray-500">쿠팡이츠</span>
+              <span className="font-medium">₩{formatCurrency(data.channelSales.coupangSales)}</span>
+            </li>
+            <li className="flex justify-between">
+              <span className="text-gray-500">수기 매출</span>
+              <span className="font-medium">₩{formatCurrency(data.channelSales.manualSales)}</span>
+            </li>
+          </ul>
+        </div>
+
         {/* 주간 추이 차트 */}
-        <div className="space-y-2">
-          <h3 className="font-semibold text-lg">일별 매출 추이</h3>
-          <div className="h-[300px]">
+        <div className="space-y-3">
+          <h3 className="font-semibold text-lg border-b pb-2">일별 매출 추이</h3>
+          <div className="h-[250px] w-full pt-4">
             <SalesLineChart data={data.dailyTrend} xKey="date" yKey="sales" />
           </div>
         </div>

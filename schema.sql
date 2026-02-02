@@ -16,6 +16,8 @@ CREATE TABLE sales_orders (
 CREATE TABLE sales_items (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     order_id UUID REFERENCES sales_orders(id) ON DELETE CASCADE,
+    sale_date DATE NOT NULL,              -- 매출 날짜
+    order_at TIMESTAMPTZ NOT NULL,       -- 주문 일시
     item_name VARCHAR(255) NOT NULL,
     quantity INTEGER NOT NULL DEFAULT 1,
     unit_price INTEGER NOT NULL DEFAULT 0,
@@ -51,6 +53,8 @@ COMMENT ON COLUMN sales_orders.order_at IS '주문 일시 (타임존 포함)';
 COMMENT ON COLUMN sales_orders.gross_amount IS '총 판매액 (고객이 결제한 전체 금액)';
 COMMENT ON COLUMN sales_orders.net_amount IS '실 매출액 (플랫폼 수수료 등을 제외한 실제 정산액)';
 
+COMMENT ON COLUMN sales_items.sale_date IS '매출 날짜';
+COMMENT ON COLUMN sales_items.order_at IS '주문 일시 (타임존 포함)';
 COMMENT ON COLUMN sales_items.item_name IS '상품명';
 COMMENT ON COLUMN sales_items.quantity IS '수량';
 COMMENT ON COLUMN sales_items.total_amount IS '해당 상품의 합계 금액';

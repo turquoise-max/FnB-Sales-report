@@ -11,9 +11,9 @@ interface LineChartProps {
 export default function SalesLineChart({ data, xKey = 'date', yKey = 'sales' }: LineChartProps) {
   return (
     <ResponsiveContainer width="100%" height={300}>
-      <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+      <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
         <CartesianGrid strokeDasharray="3 3" />
-        <XAxis dataKey={xKey} />
+        <XAxis dataKey={xKey} height={50} tick={{ fontSize: 12 }} />
         <YAxis />
         <Tooltip formatter={(value: any) => 
           typeof value === 'number' ? `₩${value.toLocaleString('ko-KR')}` : value

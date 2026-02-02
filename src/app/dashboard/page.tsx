@@ -3,16 +3,24 @@ import { getKpiData, getChartData, getBestSellers, getTrendData, getItemPieChart
 import SalesLineChart from '@/components/charts/LineChart';
 import PieChartWithFilter from '@/components/charts/PieChartWithFilter';
 import { TrendingUp, TrendingDown, Clock, Calendar, BarChart3, ShoppingBag } from 'lucide-react';
+import { DatePicker } from '@/components/DatePicker';
 
 export const dynamic = 'force-dynamic';
 
-export default async function DashboardPage() {
-  const kpiData = await getKpiData();
-  const chartData = await getChartData();
-  const bestSellers = await getBestSellers();
-  const trendData = await getTrendData();
-  const itemPieData = await getItemPieChartData();
-  const hourlyData = await getHourlySalesData();
+interface PageProps {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}
+
+export default async function DashboardPage({ searchParams }: PageProps) {
+  const params = await searchParams;
+  const selectedDate = params.date ? new Date(String(params.date)) : new Date();
+
+  const kpiData = await getKpiData(selectedDate);
+  const chartData = await getChartData(selectedDate);
+  const bestSellers = await getBestSellers(selectedDate);
+  const trendData = await getTrendData(selectedDate);
+  const itemPieData = await getItemPieChartData(selectedDate);
+  const hourlyData = await getHourlySalesData(selectedDate);
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('ko-KR').format(amount);
@@ -20,7 +28,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="container mx-auto p-8">
-      <h1 className="text-3xl font-bold mb-6">대시보드</h1>
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-3xl font-bold">대시보드</h1>
+        <DatePicker date={selectedDate} />
+      </div>
       
       {/* KPI Cards - 첫 번째 줄 */}
       <div className="grid gap-4 md:grid-cols-3 mb-4">
@@ -125,7 +136,7 @@ export default async function DashboardPage() {
         {/* 1. 시간대별 매출 분석 */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0">
-            <CardTitle className="text-base font-semibold">오늘 시간대별 매출 추이</CardTitle>
+            <CardTitle className="text-base font-semibold">시간대별 매출 추이</CardTitle>
             <Clock className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>

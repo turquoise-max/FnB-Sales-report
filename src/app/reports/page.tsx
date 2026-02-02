@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { DateRangePicker } from '@/components/DateRangePicker';
+import { DatePicker } from '@/components/DatePicker';
 import DailyReport from '@/components/reports/DailyReport';
 import WeeklyReport from '@/components/reports/WeeklyReport';
 import MonthlyReport from '@/components/reports/MonthlyReport';
@@ -18,11 +18,7 @@ export default async function ReportsPage({ searchParams }: PageProps) {
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold">보고서 미리보기</h1>
         <div className="flex items-center gap-4">
-          <DateRangePicker className="w-auto" /> 
-          {/* Note: DateRangePicker는 범위를 선택하지만, 리포트는 기준일(종료일) 하나만 필요할 수 있음. 
-              여기서는 편의상 DateRangePicker의 'to' 날짜를 기준일로 사용하거나, 
-              단일 날짜 선택기(DatePicker)를 별도로 만드는 것이 좋음. 
-              일단 기존 DateRangePicker를 활용하되, 로직에서 to 날짜를 우선 사용하도록 함. */}
+          <DatePicker date={selectedDate} />
         </div>
       </div>
 
