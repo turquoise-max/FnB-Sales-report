@@ -10,10 +10,17 @@ interface BaeminCrawlResult {
 export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlResult> {
     const isVercel = process.env.VERCEL === '1';
     
+    // Vercel 환경일 경우 추가적인 경로 설정 및 최적화 args 적용
+    if (isVercel) {
+        // 그래픽 하드웨어 가속 비활성화 등 서버리스 환경 최적화
+        chromium_headless.args.push('--disable-gpu');
+        chromium_headless.args.push('--single-process');
+    }
+
     const browser = await chromium.launch({
-        args: isVercel ? chromium_headless.args : ['--no-sandbox', '--disable-setuid-sandbox'],
+        args: isVercel ? [...chromium_headless.args, '--disable-gpu', '--single-process'] : ['--no-sandbox', '--disable-setuid-sandbox'],
         executablePath: isVercel ? await chromium_headless.executablePath() : undefined,
-        headless: isVercel ? true : false, // Vercel에서는 무조건 true, 로컬 테스트 편의를 위해 false
+        headless: isVercel ? true : false,
     });
 
     try {

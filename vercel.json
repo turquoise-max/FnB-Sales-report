@@ -4,5 +4,14 @@
       "path": "/api/cron/daily-report",
       "schedule": "0 9 * * *"
     }
-  ]
+  ],
+  "functions": {
+    "src/app/api/cron/daily-report/route.ts": {
+      "maxDuration": 60
+    },
+    "src/app/actions.ts": {
+      "maxDuration": 60,
+      "includeFiles": "node_modules/@sparticuz/chromium/bin/**"
+    }
+  }
 }
