@@ -287,7 +287,6 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
             console.error('[Baemin] Login Step Error:', loginError);
             throw loginError;
         }
-
     } catch (error: any) {
         console.error('[Baemin] Crawler Error:', error);
         // 이미 스크린샷 정보가 포함된 에러는 그대로 반환
