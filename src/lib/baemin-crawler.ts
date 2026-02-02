@@ -35,21 +35,39 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
 
     try {
         const context = await browser.newContext({ 
-            viewport: { width: 1920, height: 1080 }, // 데스크탑 표준 해상도로 확장
+            viewport: { width: 1920, height: 1080 },
             userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             locale: 'ko-KR',
             timezoneId: 'Asia/Seoul',
-            isMobile: false, // 모바일 모드 명시적 해제
+            extraHTTPHeaders: {
+                'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+            },
+            isMobile: false,
             hasTouch: false
         });
         const page = await context.newPage();
 
+        // 봇 탐지 우회를 위한 핑거프린트 위조 스크립트 주입
+        await page.addInitScript(() => {
+            // navigator.webdriver 속성 제거
+            Object.defineProperty(navigator, 'webdriver', { get: () => false });
+            // 크롬 관련 속성 주입
+            (window as any).chrome = { runtime: {} };
+            // 플러그인 개수 속여 일반 브라우저처럼 보이기
+            Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] });
+            // 언어 설정 강제
+            Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko'] });
+        });
+
         // 1. 배민 로그인
         console.log(`[Baemin] 1. 로그인 페이지 접속 중...`);
         try {
-            // CDP 환경 안정성을 위해 domcontentloaded 상태까지 확인
+            // Referer를 주입하여 정상적인 접근으로 위장
+            await page.setExtraHTTPHeaders({
+                'Referer': 'https://www.google.com/'
+            });
             await page.goto("https://biz-member.baemin.com/login", { waitUntil: 'load', timeout: 40000 });
-            await page.waitForTimeout(3000); // 렌더링 및 스크립트 실행 대기
+            await page.waitForTimeout(5000); // 렌더링 시간 충분히 확보
             
             // 다중 셀렉터 전략: name 외에도 흔히 쓰이는 속성 시도
             const idInput = page.locator("input[name='id'], input#id, input[type='text']").first();
