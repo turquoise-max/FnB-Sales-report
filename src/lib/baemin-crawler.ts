@@ -29,15 +29,23 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
         const page = await context.newPage();
 
         // 1. 배민 로그인
-        console.log(`[Baemin] 1. 로그인 중...`);
-        await page.goto("https://biz-member.baemin.com/login");
-        await page.fill("input[name='id']", "bsmfnb");
+        console.log(`[Baemin] 1. 로그인 페이지 접속 중...`);
+        // Browserless/CDP 환경에서는 networkidle 대기가 더 안정적임
+        await page.goto("https://biz-member.baemin.com/login", { waitUntil: 'networkidle', timeout: 30000 });
+        
+        // 요소 가시성 확실히 대기 (Vercel/CDP 지연 대응)
+        const idInput = page.locator("input[name='id']");
+        await idInput.waitFor({ state: 'visible', timeout: 15000 });
+        
+        console.log(`[Baemin] 1-2. 로그인 정보 입력 중...`);
+        await idInput.fill("bsmfnb");
         await page.fill("input[name='password']", "mufin00!!");
         
-        // 로그인 후 리다이렉트가 완료될 때까지 확실히 대기
+        // 로그인 버튼 클릭 및 리다이렉트 대기
         await Promise.all([
             page.click("button:has-text('로그인')"),
-            page.waitForURL(/baemin\.com/, { timeout: 20000 })
+            // URL 변화를 더 여유있게 대기
+            page.waitForURL(/baemin\.com/, { waitUntil: 'networkidle', timeout: 30000 })
         ]);
         await page.waitForTimeout(2000); // 세션 처리 대기
 
