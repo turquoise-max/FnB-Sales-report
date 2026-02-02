@@ -36,18 +36,26 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
     try {
         const context = await browser.newContext({ 
             viewport: { width: 1280, height: 1000 },
-            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            locale: 'ko-KR',
+            timezoneId: 'Asia/Seoul'
         });
         const page = await context.newPage();
 
         // 1. 배민 로그인
         console.log(`[Baemin] 1. 로그인 페이지 접속 중...`);
-        // Browserless/CDP 환경에서는 networkidle 대기가 더 안정적임
-        await page.goto("https://biz-member.baemin.com/login", { waitUntil: 'networkidle', timeout: 30000 });
-        
-        // 요소 가시성 확실히 대기 (Vercel/CDP 지연 대응)
-        const idInput = page.locator("input[name='id']");
-        await idInput.waitFor({ state: 'visible', timeout: 15000 });
+        try {
+            await page.goto("https://biz-member.baemin.com/login", { waitUntil: 'load', timeout: 30000 });
+            await page.waitForTimeout(2000); // 렌더링 안정화 대기
+            
+            const idInput = page.locator("input[name='id']");
+            // 대기 실패 시 스크린샷 캡처
+            await idInput.waitFor({ state: 'visible', timeout: 15000 }).catch(async (e) => {
+                const screenshot = await page.screenshot({ type: 'jpeg', quality: 50 });
+                const base64 = screenshot.toString('base64');
+                console.error(`[Baemin] 로그인 페이지 요소 탐색 실패. 현재 URL: ${page.url()}`);
+                throw new Error(`로그인 필드를 찾을 수 없습니다. (차단 여부 확인용 스크린샷 데이터 포함): DATA:IMAGE/JPEG;BASE64,${base64}`);
+            });
         
         console.log(`[Baemin] 1-2. 로그인 정보 입력 중...`);
         await idInput.fill("bsmfnb");
@@ -275,10 +283,16 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
 
         return { success: `${targetDate} 배민 데이터 ${ordersWithItems.length}건 주문 수집 및 저장 완료!` };
 
+        } catch (loginError: any) {
+            console.error('[Baemin] Login Step Error:', loginError);
+            throw loginError;
+        }
+
     } catch (error: any) {
         console.error('[Baemin] Crawler Error:', error);
+        // 이미 스크린샷 정보가 포함된 에러는 그대로 반환
         return { error: `배민 수집 실패: ${error.message}` };
     } finally {
-        await browser.close();
+        if (browser) await browser.close();
     }
 }
