@@ -11,11 +11,20 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
     const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 
     let browser;
-    if (isProduction && BROWSERLESS_API_KEY) {
+    if (isProduction) {
+        if (!BROWSERLESS_API_KEY) {
+            console.error("[Baemin] BROWSERLESS_API_KEY가 설정되지 않았습니다.");
+            return { error: "서버 설정 오류: Browserless API 키가 누락되었습니다. Vercel 환경 변수를 확인해주세요." };
+        }
         console.log(`[Baemin] Browserless 연결 시도...`);
-        browser = await chromium.connectOverCDP(
-            `wss://chrome.browserless.io?token=${BROWSERLESS_API_KEY}&--window-size=1280,1000`
-        );
+        try {
+            browser = await chromium.connectOverCDP(
+                `wss://chrome.browserless.io?token=${BROWSERLESS_API_KEY}&--window-size=1280,1000&stealth`
+            );
+        } catch (connError: any) {
+            console.error("[Baemin] Browserless 연결 실패:", connError);
+            return { error: `브라우저 서버 연결 실패: ${connError.message}` };
+        }
     } else {
         console.log(`[Baemin] 로컬 브라우저 실행...`);
         browser = await chromium.launch({
@@ -25,7 +34,10 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
     }
 
     try {
-        const context = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
+        const context = await browser.newContext({ 
+            viewport: { width: 1280, height: 1000 },
+            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        });
         const page = await context.newPage();
 
         // 1. 배민 로그인
