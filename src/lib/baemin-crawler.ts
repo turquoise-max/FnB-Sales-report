@@ -1,5 +1,4 @@
 import { chromium } from 'playwright-core';
-import chromium_headless from '@sparticuz/chromium';
 import { supabase } from './supabaseClient';
 
 interface BaeminCrawlResult {
@@ -9,12 +8,21 @@ interface BaeminCrawlResult {
 
 export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlResult> {
     const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
-    
-    const browser = await chromium.launch({
-        args: isProduction ? chromium_headless.args : ['--no-sandbox', '--disable-setuid-sandbox'],
-        executablePath: isProduction ? await chromium_headless.executablePath() : undefined,
-        headless: isProduction ? true : false,
-    });
+    const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
+
+    let browser;
+    if (isProduction && BROWSERLESS_API_KEY) {
+        console.log(`[Baemin] Browserless 연결 시도...`);
+        browser = await chromium.connectOverCDP(
+            `wss://chrome.browserless.io?token=${BROWSERLESS_API_KEY}&--window-size=1280,1000`
+        );
+    } else {
+        console.log(`[Baemin] 로컬 브라우저 실행...`);
+        browser = await chromium.launch({
+            headless: isProduction, // 로컬 개발 시에는 브라우저 노출
+            args: ['--no-sandbox', '--disable-setuid-sandbox']
+        });
+    }
 
     try {
         const context = await browser.newContext({ viewport: { width: 1280, height: 1000 } });
