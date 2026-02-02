@@ -35,26 +35,32 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
 
     try {
         const context = await browser.newContext({ 
-            viewport: { width: 1280, height: 1000 },
-            userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36',
+            viewport: { width: 1920, height: 1080 }, // 데스크탑 표준 해상도로 확장
+            userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             locale: 'ko-KR',
-            timezoneId: 'Asia/Seoul'
+            timezoneId: 'Asia/Seoul',
+            isMobile: false, // 모바일 모드 명시적 해제
+            hasTouch: false
         });
         const page = await context.newPage();
 
         // 1. 배민 로그인
         console.log(`[Baemin] 1. 로그인 페이지 접속 중...`);
         try {
-            await page.goto("https://biz-member.baemin.com/login", { waitUntil: 'load', timeout: 30000 });
-            await page.waitForTimeout(2000); // 렌더링 안정화 대기
+            // CDP 환경 안정성을 위해 domcontentloaded 상태까지 확인
+            await page.goto("https://biz-member.baemin.com/login", { waitUntil: 'load', timeout: 40000 });
+            await page.waitForTimeout(3000); // 렌더링 및 스크립트 실행 대기
             
-            const idInput = page.locator("input[name='id']");
+            // 다중 셀렉터 전략: name 외에도 흔히 쓰이는 속성 시도
+            const idInput = page.locator("input[name='id'], input#id, input[type='text']").first();
+            
             // 대기 실패 시 스크린샷 캡처
-            await idInput.waitFor({ state: 'visible', timeout: 15000 }).catch(async (e) => {
-                const screenshot = await page.screenshot({ type: 'jpeg', quality: 50 });
+            await idInput.waitFor({ state: 'visible', timeout: 20000 }).catch(async (e) => {
+                const screenshot = await page.screenshot({ type: 'jpeg', quality: 60 });
                 const base64 = screenshot.toString('base64');
-                console.error(`[Baemin] 로그인 페이지 요소 탐색 실패. 현재 URL: ${page.url()}`);
-                throw new Error(`로그인 필드를 찾을 수 없습니다. (차단 여부 확인용 스크린샷 데이터 포함): DATA:IMAGE/JPEG;BASE64,${base64}`);
+                const title = await page.title();
+                console.error(`[Baemin] 로그인 페이지 요소 탐색 실패. URL: ${page.url()}, Title: ${title}`);
+                throw new Error(`로그인 필드 탐색 실패. 현재 페이지 제목: ${title}. (스크린샷 포함): DATA:IMAGE/JPEG;BASE64,${base64}`);
             });
         
         console.log(`[Baemin] 1-2. 로그인 정보 입력 중...`);
