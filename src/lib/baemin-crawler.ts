@@ -1,4 +1,5 @@
-import { chromium } from 'playwright';
+import { chromium } from 'playwright-core';
+import chromium_headless from '@sparticuz/chromium';
 import { supabase } from './supabaseClient';
 
 interface BaeminCrawlResult {
@@ -7,9 +8,12 @@ interface BaeminCrawlResult {
 }
 
 export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlResult> {
+    const isVercel = process.env.VERCEL === '1';
+    
     const browser = await chromium.launch({
-        headless: false,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
+        args: isVercel ? chromium_headless.args : ['--no-sandbox', '--disable-setuid-sandbox'],
+        executablePath: isVercel ? await chromium_headless.executablePath() : undefined,
+        headless: isVercel ? true : false, // Vercel에서는 무조건 true, 로컬 테스트 편의를 위해 false
     });
 
     try {
