@@ -4,31 +4,49 @@ import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { ShoppingBag, Upload, Loader2, HelpCircle } from 'lucide-react';
-import { uploadCoupangExcel } from '@/app/actions';
+import { uploadSingleCoupangFile } from '@/app/actions';
 import { Input } from '@/components/ui/input';
 
 export default function CoupangUpload() {
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [result, setResult] = useState<{ success?: string; error?: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
   const handleUpload = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
     setUploading(true);
-    setResult(null);
+    setMessage(null);
 
-    const formData = new FormData();
-    formData.append('file', file);
+    let successCount = 0;
+    let failCount = 0;
 
-    try {
-      const res = await uploadCoupangExcel(formData);
-      setResult(res);
-      if (res.success) setFile(null);
-    } catch (e) {
-      setResult({ error: '업로드 중 예상치 못한 오류가 발생했습니다.' });
-    } finally {
-      setUploading(false);
+    for (const file of files) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      try {
+        const res = await uploadSingleCoupangFile(formData);
+        if (res.success) {
+          successCount++;
+        } else {
+          failCount++;
+          console.error(res.error);
+        }
+      } catch (e) {
+        failCount++;
+      }
     }
+
+    if (failCount === 0) {
+      setMessage({ type: 'success', text: `${successCount}개 파일 업로드 완료!` });
+      setFiles([]);
+    } else {
+      setMessage({ 
+        type: successCount > 0 ? 'success' : 'error', 
+        text: `${successCount}개 성공, ${failCount}개 실패. 콘솔을 확인하세요.` 
+      });
+    }
+    setUploading(false);
   };
 
   return (
@@ -47,37 +65,42 @@ export default function CoupangUpload() {
       </CardHeader>
       <CardContent className="space-y-4 px-0">
         <div className="space-y-2">
-          <label className="text-sm font-medium">정산 엑셀 파일 선택</label>
+          <label className="text-sm font-medium">정산 엑셀 파일 선택 (다중 선택 가능)</label>
           <Input 
             type="file" 
             accept=".xlsx,.xls" 
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
+            multiple
+            onChange={(e) => setFiles(Array.from(e.target.files || []))}
             disabled={uploading}
             className="bg-white cursor-pointer"
           />
+          {files.length > 0 && (
+            <p className="text-xs text-pink-600 font-medium">
+              선택된 파일: {files.length}개
+            </p>
+          )}
         </div>
         <Button 
           className="w-full bg-pink-600 hover:bg-pink-700 text-white font-bold h-12" 
-          disabled={!file || uploading}
+          disabled={files.length === 0 || uploading}
           onClick={handleUpload}
         >
           {uploading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              월별 정산 데이터 분석 중...
+              정산 데이터 일괄 분석 중...
             </>
           ) : (
             <>
               <Upload className="mr-2 h-4 w-4" />
-              쿠팡이츠 데이터 업로드 시작
+              {files.length}개 엑셀 업로드 시작
             </>
           )}
         </Button>
-        {result?.success && (
-          <p className="text-xs text-green-600 font-medium text-center">{result.success}</p>
-        )}
-        {result?.error && (
-          <p className="text-xs text-red-600 font-medium text-center">{result.error}</p>
+        {message && (
+          <p className={`text-xs font-medium text-center ${message.type === 'error' ? 'text-red-600' : 'text-green-600'}`}>
+            {message.text}
+          </p>
         )}
         <p className="text-xs text-muted-foreground italic text-center">
           * 쿠팡이츠 정산 내역 엑셀 파일을 업로드해주세요.

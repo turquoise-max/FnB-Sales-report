@@ -85,14 +85,22 @@ export async function updateDailySummary(saleDate: string) {
 
 /**
  * 배달의 민족 데이터를 자동 수집(크롤링)하고 DB에 저장합니다.
- * 수집 완료 후 해당 날짜의 요약 데이터도 갱신합니다.
- * @param saleDate - 수집 대상 날짜 (YYYY-MM-DD)
+ * 수집 완료 후 해당 기간의 날짜별 요약 데이터들을 모두 갱신합니다.
+ * @param startDate - 시작일 (YYYY-MM-DD)
+ * @param endDate - 종료일 (YYYY-MM-DD)
  */
-export async function crawlBaeminData(saleDate: string) {
+export async function crawlBaeminData(startDate: string, endDate: string) {
   try {
-    const result = await runBaeminCrawler(saleDate);
+    const result = await runBaeminCrawler(startDate, endDate);
     if (result.error) return result;
-    await updateDailySummary(saleDate);
+    
+    // 영향을 받은 모든 날짜에 대해 요약 갱신
+    if (result.affectedDates) {
+      for (const date of result.affectedDates) {
+        await updateDailySummary(date);
+      }
+    }
+    
     return result;
   } catch (error: any) {
     console.error('Crawl action error:', error);
@@ -256,7 +264,10 @@ function formatExcelDateTime(dateVal: any, timeVal: any): { date: string; time: 
   return { date: dateStr, time: timeStr };
 }
 
-export async function uploadCoupangExcel(formData: FormData) {
+/**
+ * 단일 쿠팡이츠 엑셀 파일을 파싱하고 DB에 업로드합니다.
+ */
+export async function uploadSingleCoupangFile(formData: FormData) {
   const file = formData.get('file') as File;
   if (!file) return { error: '파일 없음' };
   try {
@@ -264,44 +275,139 @@ export async function uploadCoupangExcel(formData: FormData) {
     const workbook = XLSX.read(buffer, { type: 'buffer' });
     const jsonData: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { header: 1 });
     let headerRowIndex = jsonData.findIndex(row => Array.isArray(row) && row.includes('주문번호'));
-    if (headerRowIndex === -1) return { error: '잘못된 형식' };
-    const header = jsonData[headerRowIndex].map((h: any) => String(h).trim());
+    if (headerRowIndex === -1) return { error: `[${file.name}] 잘못된 형식` };
+    
+    // 1행(Category)과 2행(Field) 추출
+    const categoryRow = jsonData[headerRowIndex - 1] || [];
+    const fieldRow = jsonData[headerRowIndex].map((h: any) => String(h).trim());
     const dataRows = jsonData.slice(headerRowIndex + 1);
-    const colMap = { date: header.indexOf('일자'), time: header.indexOf('시간'), orderNo: header.indexOf('주문번호'), menu: header.indexOf('상세내역'), payAmount: header.indexOf('결제금액'), settleAmount: header.lastIndexOf('산정후'), refundAmount: header.indexOf('환급액') };
+
+    // '정산금액' 섹션 범위 내의 '산정후' 컬럼 인덱스 찾기
+    let settleAmountIdx = -1;
+    const settleCategoryIdx = categoryRow.findIndex((c: any) => String(c).includes('정산금액'));
+    if (settleCategoryIdx !== -1) {
+      // '정산금액' 섹션 시작부터 다음 섹션 전까지 탐색
+      for (let j = settleCategoryIdx; j < fieldRow.length; j++) {
+        if (fieldRow[j] === '산정후') {
+          settleAmountIdx = j;
+          break;
+        }
+      }
+    }
+    // 예외 케이스: 정산금액 섹션을 못 찾으면 기존처럼 lastIndexOf 시도
+    if (settleAmountIdx === -1) settleAmountIdx = fieldRow.lastIndexOf('산정후');
+
+    const colMap = { 
+      date: fieldRow.indexOf('일자'), 
+      time: fieldRow.indexOf('시간'), 
+      orderNo: fieldRow.indexOf('주문번호'), 
+      menu: fieldRow.indexOf('상세내역'), 
+      payAmount: fieldRow.indexOf('결제금액'), 
+      settleAmount: settleAmountIdx, 
+      refundAmount: fieldRow.indexOf('환급액') 
+    };
+
     const ordersMap = new Map<string, { order: SalesOrder; items: SalesItem[] }>();
     const saleDates = new Set<string>();
 
     dataRows.forEach(row => {
       const orderNo = String(row[colMap.orderNo]).trim();
-      if (!orderNo || orderNo === '주문번호') return;
+      if (!orderNo || orderNo === '주문번호' || orderNo === 'undefined') return;
+      
       const { date, time } = formatExcelDateTime(row[colMap.date], row[colMap.time]);
-      const parseAmt = (v: any) => typeof v === 'number' ? v : parseInt(String(v || '0').replace(/,/g, ''), 10) || 0;
+      const parseAmt = (v: any) => {
+        if (typeof v === 'number') return v;
+        return parseInt(String(v || '0').replace(/,/g, ''), 10) || 0;
+      };
+      
+      // 수정된 공식: 총매출 = 결제금액, 실매출 = 산정후 + 환급액
       const grossAmount = parseAmt(row[colMap.payAmount]);
-      const netAmount = parseAmt(row[colMap.settleAmount]) + parseAmt(row[colMap.refundAmount]);
-      if (!date) return;
+      const settleAmount = parseAmt(row[colMap.settleAmount]);
+      const refundAmount = parseAmt(row[colMap.refundAmount]);
+      const netAmount = settleAmount + refundAmount;
+
+      if (!date || date === 'undefined') return;
+      
       saleDates.add(date);
+      
+      // 시간 포맷 보정 (KST 명시)
+      const formattedTime = time.split(':').map(part => part.padStart(2, '0')).join(':');
+      const orderAtKST = `${date}T${formattedTime}+09:00`;
+
+      // 상세내역 문자열에서 개별 상품 및 수량 추출 함수
+      const parseMenuItems = (menuStr: string, isRefundOrder: boolean) => {
+        return menuStr.split(',').map(m => {
+          const trimmed = m.trim();
+          // "상품명x2" 또는 "상품명 x2" 패턴 매칭
+          const match = trimmed.match(/(.+?)\s*x\s*(\d+)$/);
+          let name = trimmed;
+          let qty = isRefundOrder ? -1 : 1;
+
+          if (match) {
+            name = match[1].trim();
+            qty = isRefundOrder ? -parseInt(match[2], 10) : parseInt(match[2], 10);
+          }
+          
+          return {
+            item_name: name,
+            quantity: qty,
+            unit_price: 0,
+            total_amount: 0, // 개별 가격 정보 없음
+            sale_date: date,
+            order_at: orderAtKST
+          };
+        }).filter(item => item.item_name !== '');
+      };
+
+      const isRefund = netAmount < 0 || grossAmount < 0;
+
       if (ordersMap.has(orderNo)) {
         const e = ordersMap.get(orderNo)!;
-        e.order.gross_amount += grossAmount; e.order.net_amount += netAmount; e.order.is_refund = e.order.net_amount <= 0;
-        e.items.push(...String(row[colMap.menu] || '').split(',').map(m => ({ item_name: m.trim(), quantity: netAmount < 0 ? -1 : 1, unit_price: 0, total_amount: grossAmount, sale_date: date, order_at: `${date}T${time}+09:00` })));
+        e.order.gross_amount += grossAmount; 
+        e.order.net_amount += netAmount; 
+        e.order.is_refund = e.order.net_amount <= 0;
+        
+        e.items.push(...parseMenuItems(String(row[colMap.menu] || ''), isRefund));
       } else {
-        ordersMap.set(orderNo, { order: { order_number: orderNo, channel: 'COUPANG', order_at: `${date}T${time}+09:00`, gross_amount: grossAmount, net_amount: netAmount, is_refund: netAmount <= 0, raw_data: row }, items: String(row[colMap.menu] || '').split(',').map(m => ({ item_name: m.trim(), quantity: netAmount < 0 ? -1 : 1, unit_price: 0, total_amount: grossAmount, sale_date: date, order_at: `${date}T${time}+09:00` })) });
+        ordersMap.set(orderNo, { 
+          order: { 
+            order_number: orderNo, 
+            channel: 'COUPANG', 
+            order_at: orderAtKST, 
+            gross_amount: grossAmount, 
+            net_amount: netAmount, 
+            is_refund: isRefund, 
+            raw_data: row 
+          }, 
+          items: parseMenuItems(String(row[colMap.menu] || ''), isRefund)
+        });
       }
     });
 
-    const { data: upsertedOrders, error: upsertError } = await supabase.from('sales_orders').upsert(Array.from(ordersMap.values()).map(d => d.order), { onConflict: 'order_number,channel' }).select();
+    if (ordersMap.size > 0) {
+    const ordersToUpsert = Array.from(ordersMap.values()).map(d => d.order);
+    const { data: upsertedOrders, error: upsertError } = await supabase
+      .from('sales_orders')
+      .upsert(ordersToUpsert, { onConflict: 'order_number,channel' })
+      .select();
+      
     if (upsertError) throw upsertError;
-    await supabase.from('sales_items').delete().in('order_id', upsertedOrders.map(o => o.id));
-    const allItems: any[] = [];
-    upsertedOrders.forEach(o => {
-      const d = ordersMap.get(o.order_number);
-      if (d) d.items.forEach(i => allItems.push({ ...i, order_id: o.id }));
-    });
-    if (allItems.length > 0) await supabase.from('sales_items').insert(allItems);
-    for (const date of saleDates) await updateDailySummary(date);
-    return { success: '완료' };
+      
+      await supabase.from('sales_items').delete().in('order_id', upsertedOrders.map(o => o.id));
+      const allItems: any[] = [];
+      upsertedOrders.forEach(o => {
+        const d = ordersMap.get(o.order_number);
+        if (d) d.items.forEach(i => allItems.push({ ...i, order_id: o.id }));
+      });
+      
+      if (allItems.length > 0) await supabase.from('sales_items').insert(allItems);
+      for (const date of saleDates) await updateDailySummary(date);
+    }
+    
+    return { success: true, count: ordersMap.size };
   } catch (error: any) {
-    return { error: error.message };
+    console.error('Coupang single upload error:', error);
+    return { error: `[${file.name}] ${error.message}` };
   }
 }
 
@@ -314,7 +420,16 @@ export async function addMultipleManualInputs(formData: FormData) {
     const totalNet = rows.reduce((sum: number, r: any) => sum + (parseInt(r.netAmount, 10) || 0), 0);
     const { data: orderData, error: orderError } = await supabase.from('sales_orders').insert({ order_number: orderNumber, channel: 'MANUAL', order_at: `${saleDate}T12:00:00+09:00`, gross_amount: totalGross, net_amount: totalNet }).select().single();
     if (orderError) throw orderError;
-    const items = rows.map((row: any) => ({ order_id: orderData.id, item_name: row.description, quantity: 1, unit_price: parseInt(row.grossAmount, 10) || 0, total_amount: parseInt(row.grossAmount, 10) || 0, sale_date: saleDate, order_at: `${saleDate}T12:00:00+09:00` }));
+    const orderAtKST = `${saleDate}T12:00:00+09:00`;
+    const items = rows.map((row: any) => ({ 
+      order_id: orderData.id, 
+      item_name: row.description, 
+      quantity: 1, 
+      unit_price: parseInt(row.grossAmount, 10) || 0, 
+      total_amount: parseInt(row.grossAmount, 10) || 0, 
+      sale_date: saleDate, 
+      order_at: orderAtKST 
+    }));
     await supabase.from('sales_items').insert(items);
     await updateDailySummary(saleDate);
     return { success: '저장 완료' };

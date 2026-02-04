@@ -64,7 +64,7 @@ export async function getDailyReportData(date: Date) {
 
   // 08:00 ~ 20:00 범위로 필터링 및 시간 포맷팅
   const filteredHourlySales = hourlySales
-    .filter(h => h.hour >= 8 && h.hour <= 20)
+    .filter(h => h.hour >= 8 && h.hour <= 21)
     .map(h => ({ ...h, hour: `${String(h.hour).padStart(2, '0')}:00` }));
 
   return {

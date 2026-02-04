@@ -11,6 +11,7 @@ import {
   getDefaultClassNames,
   type DayButton,
 } from "react-day-picker"
+import { ko } from "date-fns/locale"
 
 import { cn } from "@/lib/utils"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -40,11 +41,14 @@ function Calendar({
       )}
       captionLayout={captionLayout}
       formatters={{
+        formatCaption: (date, options) => {
+          return `${date.getFullYear()}년 ${date.getMonth() + 1}월`;
+        },
         formatMonthDropdown: (date) =>
-          date.toLocaleString("ko-KR", { month: "long" }),
+          `${date.getMonth() + 1}월`,
         ...formatters,
       }}
-      locale={undefined} // react-day-picker locale can be passed via props
+      locale={ko}
       classNames={{
         root: cn("w-fit", defaultClassNames.root),
         months: cn(

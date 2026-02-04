@@ -8,9 +8,10 @@ import { supabase } from '../database/supabaseClient';
 interface BaeminCrawlResult {
     success?: string;
     error?: string;
+    affectedDates?: string[];
 }
 
-export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlResult> {
+export async function runBaeminCrawler(startDate: string, endDate: string): Promise<BaeminCrawlResult> {
     const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
     const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 
@@ -97,30 +98,20 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
         ]);
         await page.waitForTimeout(2000); // 세션 처리 대기
 
-        // --- 데이터 가로채기 설정 (리스너 일찍 등록) ---
+        // --- 데이터 가로채기 설정 ---
         let allInterceptedContents: any[] = [];
-        const waitForData = new Promise(resolve => {
-            page.on("response", async (res) => {
-                if (res.url().includes("v4/orders") && res.status() === 200) {
-                    try {
-                        const data = await res.json();
-                        if (data && data.contents && data.contents.length > 0) {
-                            console.log(`[Baemin] API 데이터 수신: ${data.contents.length}건 (URL: ${res.url().split('?')[0]})`);
-                            allInterceptedContents.push(...data.contents);
-                            // 특정 날짜 데이터가 포함되어 있는지 확인
-                            const hasTargetDate = data.contents.some((item: any) => 
-                                item.order?.orderDateTime?.startsWith(targetDate)
-                            );
-                            if (hasTargetDate) {
-                                console.log(`[Baemin] 목표 날짜(${targetDate}) 데이터 확인됨!`);
-                                resolve(true);
-                            }
-                        }
-                    } catch (e) {}
-                }
-            });
-            // 최종 버튼 클릭 후 데이터가 올 시간을 충분히 줌
-            setTimeout(() => resolve(allInterceptedContents.length > 0), 35000);
+        
+        // API 응답 리스너 등록
+        page.on("response", async (res) => {
+            if (res.url().includes("v4/orders") && res.status() === 200) {
+                try {
+                    const data = await res.json();
+                    if (data && data.contents && data.contents.length > 0) {
+                        console.log(`[Baemin] API 데이터 수신: ${data.contents.length}건 (URL: ${res.url().split('?')[0]})`);
+                        allInterceptedContents.push(...data.contents);
+                    }
+                } catch (e) {}
+            }
         });
 
         // 2. 주문 내역 페이지 이동
@@ -175,47 +166,45 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
         } catch (e) {}
         await page.waitForTimeout(1500);
 
-        // 6. 캘린더에서 날짜로 이동 및 선택
-        const [year, month, day] = targetDate.split('-').map(Number);
-        const targetHeader = `${year}년 ${month}월`;
-        console.log(`[Baemin] 6. ${targetHeader} ${day}일 이동 중...`);
-        
-        let moveCount = 0;
-        while (moveCount < 24) {
-            const captions = await page.locator('caption[data-atelier-component="Typography"]').allInnerTexts();
-            const isMatch = captions.some(c => c.replace(/\s+/g, '').includes(targetHeader.replace(/\s+/g, '')));
+        // 6. 캘린더에서 날짜 선택 (시작일, 종료일 순차 클릭)
+        const selectDateOnCalendar = async (targetDateStr: string) => {
+            const [year, month, day] = targetDateStr.split('-').map(Number);
+            const targetHeader = `${year}년 ${month}월`;
+            
+            // 월 이동 로직
+            let moveCount = 0;
+            while (moveCount < 24) {
+                const captions = await page.locator('caption[data-atelier-component="Typography"]').allInnerTexts();
+                const isMatch = captions.some(c => c.replace(/\s+/g, '').includes(targetHeader.replace(/\s+/g, '')));
+                if (isMatch) break;
 
-            if (isMatch) {
-                console.log(`[Baemin] 목표 월 발견`);
-                break;
+                const currentMonthYear = captions[0] || ""; // 대략적인 현재 위치 파악
+                const [currYear, currMonth] = currentMonthYear.match(/\d+/g)?.map(Number) || [0,0];
+                
+                const isFuture = (year > currYear) || (year === currYear && month > currMonth);
+                const navBtn = isFuture 
+                    ? page.locator('button[aria-label="다음 달"]').first()
+                    : page.locator('button[aria-label="이전 달"]').first();
+
+                if (await navBtn.isVisible()) {
+                    await navBtn.click({ force: true });
+                    await page.waitForTimeout(800);
+                } else {
+                    break;
+                }
+                moveCount++;
             }
 
-            const prevBtn = page.locator('button[aria-label="이전 달"]').first();
-            if (await prevBtn.isVisible()) {
-                await prevBtn.click({ force: true });
-                await page.waitForTimeout(1000);
-            } else {
-                break;
-            }
-            moveCount++;
-        }
+            // 일자 클릭
+            const dayBtn = page.locator('button, [role="button"]').filter({ hasText: new RegExp(`^${day}$`) }).first();
+            await dayBtn.click({ force: true });
+            await page.waitForTimeout(500);
+        };
 
-        // 일자 선택
-        const dayBtn = page.locator('div').filter({ 
-            has: page.locator(`caption:has-text("${year}"), caption:has-text("${month}")`) 
-        }).locator('button, [role="button"]').filter({ hasText: new RegExp(`^${day}$`) }).first();
-        
-        if (await dayBtn.isVisible()) {
-            await dayBtn.click({ force: true });
-            await page.waitForTimeout(300);
-            await dayBtn.click({ force: true });
-            console.log(`[Baemin] ${day}일 선택 완료`);
-        } else {
-            const fallbackDayBtn = page.locator('button, [role="button"]').filter({ hasText: new RegExp(`^${day}$`) }).first();
-            await fallbackDayBtn.click({ force: true });
-            await page.waitForTimeout(300);
-            await fallbackDayBtn.click({ force: true });
-        }
+        console.log(`[Baemin] 6-1. 시작일(${startDate}) 선택`);
+        await selectDateOnCalendar(startDate);
+        console.log(`[Baemin] 6-2. 종료일(${endDate}) 선택`);
+        await selectDateOnCalendar(endDate);
 
         // 7. 적용 버튼 시퀀스 (이미지 분석 기반 2단계 적용)
         console.log(`[Baemin] 7. 적용 버튼 클릭 시퀀스...`);
@@ -244,28 +233,55 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
             await page.locator('button:has-text("적용")').last().click({ force: true });
         }
 
-        // 8. API 데이터 수집
-        console.log(`[Baemin] 8. 데이터 수신 대기...`);
-        await waitForData;
+        // 8. 다중 페이지 탐색 및 데이터 수집
+        console.log(`[Baemin] 8. 데이터 수집 및 페이지 탐색 시작...`);
+        
+        // 첫 페이지 로딩 대기
+        await page.waitForTimeout(5000);
+
+        let hasNextPage = true;
+        let pageCount = 1;
+
+        while (hasNextPage && pageCount < 20) { // 최대 20페이지까지만 탐색 (안전장치)
+            const nextBtn = page.locator('button[aria-label="다음으로"]').first();
+            
+            // 버튼 존재 여부 및 활성화 상태 체크
+            if (await nextBtn.isVisible()) {
+                const isDisabled = await nextBtn.getAttribute('data-disabled');
+                if (isDisabled === 'false') {
+                    console.log(`[Baemin] ${pageCount}페이지 수집 완료. 다음 페이지(${pageCount + 1})로 이동...`);
+                    await nextBtn.click({ force: true });
+                    await page.waitForTimeout(4000); // 다음 페이지 데이터 로딩 대기
+                    pageCount++;
+                } else {
+                    console.log(`[Baemin] 마지막 페이지 도달.`);
+                    hasNextPage = false;
+                }
+            } else {
+                console.log(`[Baemin] 다음 페이지 버튼 없음.`);
+                hasNextPage = false;
+            }
+        }
         
         if (allInterceptedContents.length === 0) {
             await page.screenshot({ path: `baemin-no-data-${Date.now()}.png` });
-            return { error: `${targetDate}에 해당하는 배민 주문 데이터를 수신하지 못했습니다. (데이터 없음)` };
+            return { error: `선택한 기간(${startDate} ~ ${endDate})에 해당하는 배민 주문 데이터를 수신하지 못했습니다.` };
         }
 
         // 데이터 변환 및 DB 저장
         const ordersWithItems: any[] = [];
         const seenOrderNumbers = new Set();
+        const affectedDates = new Set<string>();
 
         for (const item of allInterceptedContents) {
             const order = item.order;
             const settle = item.settle;
 
-            const orderDateTime = order.orderDateTime; // "2025-12-08T16:41:44"
-            const [orderDate, _] = orderDateTime.split('T');
+            const orderDateTime = order.orderDateTime; 
+            const orderDate = orderDateTime.split('T')[0];
 
-            // 선택한 날짜와 일치하는 데이터만 필터링 (중복 주문번호 방지)
-            if (orderDate !== targetDate) continue;
+            // 기간 내 필터링
+            if (orderDate < startDate || orderDate > endDate) continue;
             if (seenOrderNumbers.has(order.orderNumber)) continue;
             seenOrderNumbers.add(order.orderNumber);
 
@@ -276,10 +292,13 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
             const customerPayAmount = order.payAmount || 0; 
 
             // 1. 주문 정보
+            // 배민 API의 orderDateTime이 "2025-12-08T16:41:44" 형식이므로 KST 명시
+            const orderAtKST = `${orderDateTime}+09:00`;
+
             const orderData = {
                 order_number: order.orderNumber,
                 channel: 'BAEMIN',
-                order_at: `${orderDateTime}+09:00`,
+                order_at: orderAtKST,
                 gross_amount: customerPayAmount,
                 net_amount: depositDueAmount,
                 is_refund: order.status !== 'CLOSED' && order.status !== 'FINISHED',
@@ -300,38 +319,38 @@ export async function runBaeminCrawler(targetDate: string): Promise<BaeminCrawlR
                     total_amount: menuItem.totalPrice,
                     options_text: optionsText || null,
                     sale_date: orderDate,
-                    order_at: `${orderDateTime}+09:00`
+                    order_at: orderAtKST
                 };
             });
 
             ordersWithItems.push({ order: orderData, items: itemsData });
+            affectedDates.add(orderDate);
         }
 
         if (ordersWithItems.length === 0) {
-            return { error: `${targetDate} 날짜와 일치하는 주문 내역이 응답에 없습니다.` };
+            return { error: `기간(${startDate} ~ ${endDate}) 내의 주문 내역을 찾을 수 없습니다.` };
         }
 
         console.log(`[Baemin] ${ordersWithItems.length}건 주문 DB 저장 중...`);
 
-        // 기존 데이터 삭제 (중복 방지)
-        const startOfDay = `${targetDate}T00:00:00+09:00`;
-        const endOfDay = `${targetDate}T23:59:59+09:00`;
-        await supabase.from('sales_orders').delete().eq('channel', 'BAEMIN').gte('order_at', startOfDay).lte('order_at', endOfDay);
+        // 기존 데이터 삭제 (기간 단위)
+        const rangeStartUTC = new Date(`${startDate}T00:00:00+09:00`).toISOString();
+        const rangeEndUTC = new Date(`${endDate}T23:59:59+09:00`).toISOString();
+        await supabase.from('sales_orders').delete().eq('channel', 'BAEMIN').gte('order_at', rangeStartUTC).lte('order_at', rangeEndUTC);
 
         // 신규 데이터 삽입
         for (const entry of ordersWithItems) {
             const { data: orderData, error: orderError } = await supabase.from('sales_orders').insert(entry.order).select().single();
-            if (!orderError) {
+            if (!orderError && orderData) {
                 const itemsToInsert = entry.items.map((item: any) => ({ ...item, order_id: orderData.id }));
                 await supabase.from('sales_items').insert(itemsToInsert);
             }
         }
 
-        // daily_summary 업데이트를 위해 actions.ts의 로직을 재사용해야 하나, 
-        // 여기서는 집계 데이터만 반환하거나 직접 업데이트 가능
-        // 통합성을 위해 daily_summary 재집계 쿼리 실행 추천
-
-        return { success: `${targetDate} 배민 데이터 ${ordersWithItems.length}건 주문 수집 및 저장 완료!` };
+        return { 
+            success: `${startDate} ~ ${endDate} 배민 데이터 ${ordersWithItems.length}건 수집 완료!`,
+            affectedDates: Array.from(affectedDates) 
+        };
 
         } catch (loginError: any) {
             console.error('[Baemin] Login Step Error:', loginError);

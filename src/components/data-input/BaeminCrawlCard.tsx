@@ -7,14 +7,24 @@ import { Button } from '@/components/ui/button';
 import { crawlBaeminData } from '@/app/actions';
 import { CloudDownload, HelpCircle } from 'lucide-react';
 
+import { DateRange } from 'react-day-picker';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { format, subDays } from 'date-fns';
+import { Calendar as CalendarIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
 export default function BaeminUpload() {
-  const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: new Date()
+  });
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleCrawl = async () => {
-    if (!saleDate) {
-      setMessage({ type: 'error', text: '수집할 날짜를 선택해주세요.' });
+    if (!dateRange?.from || !dateRange?.to) {
+      setMessage({ type: 'error', text: '수집할 기간을 선택해주세요.' });
       return;
     }
 
@@ -22,7 +32,9 @@ export default function BaeminUpload() {
     setMessage(null);
 
     try {
-      const result = await crawlBaeminData(saleDate);
+      const startDate = format(dateRange.from, 'yyyy-MM-dd');
+      const endDate = format(dateRange.to, 'yyyy-MM-dd');
+      const result = await crawlBaeminData(startDate, endDate);
       if (result.error) {
         setMessage({ type: 'error', text: result.error });
       } else {
@@ -51,15 +63,43 @@ export default function BaeminUpload() {
       </CardHeader>
       <CardContent className="space-y-4 px-0">
         <div className="space-y-2">
-          <label htmlFor="baemin-date" className="text-sm font-medium">수집 기준일</label>
-          <Input
-            id="baemin-date"
-            type="date"
-            value={saleDate}
-            onChange={(e) => setSaleDate(e.target.value)}
-            disabled={loading}
-            className="bg-white"
-          />
+          <label className="text-sm font-medium">수집 기간 선택</label>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant={"outline"}
+                className={cn(
+                  "w-full justify-start text-left font-normal bg-white h-10",
+                  !dateRange && "text-muted-foreground"
+                )}
+                disabled={loading}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, "yyyy-MM-dd")} ~{" "}
+                      {format(dateRange.to, "yyyy-MM-dd")}
+                    </>
+                  ) : (
+                    format(dateRange.from, "yyyy-MM-dd")
+                  )
+                ) : (
+                  <span>기간을 선택하세요</span>
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from}
+                selected={dateRange}
+                onSelect={setDateRange}
+                numberOfMonths={2}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
         <Button 
           onClick={handleCrawl} 
