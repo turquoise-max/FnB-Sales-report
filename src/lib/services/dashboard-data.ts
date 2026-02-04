@@ -4,6 +4,7 @@
  */
 import { supabase } from '../database/supabaseClient';
 import { startOfMonth, subDays, format, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
+import { getKSTDate } from '../utils';
 
 // 오늘 날짜를 'YYYY-MM-DD' 형식으로 가져오는 헬퍼 함수
 const getToday = (date: Date = new Date()) => format(date, 'yyyy-MM-dd');
