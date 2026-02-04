@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabaseClient';
+import { supabase } from '@/lib/database/supabaseClient';
 import { format, subDays } from 'date-fns';
 import { NextResponse } from 'next/server';
 
@@ -61,7 +61,7 @@ export async function GET() {
             },
             {
               type: 'mrkdwn',
-              text: `*영업 외 매출:*\n₩${manualSales.toLocaleString('ko-KR')}`
+              text: `*기타/수기 매출:*\n₩${manualSales.toLocaleString('ko-KR')}`
             }
           ]
         },
