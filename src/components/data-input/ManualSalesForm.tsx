@@ -1,11 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { addMultipleManualInputs } from '@/app/actions';
-import { Plus, Trash2, Edit3 } from 'lucide-react';
+import { Plus, Trash2, HelpCircle, PencilLine } from 'lucide-react';
 
 interface ManualInputRow {
   id: string;
@@ -15,7 +15,7 @@ interface ManualInputRow {
 }
 
 export default function MultiRowInputForm() {
-  const [date, setDate] = useState('');
+  const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [rows, setRows] = useState<ManualInputRow[]>([
     { id: crypto.randomUUID(), description: '', grossAmount: '', netAmount: '' },
   ]);
@@ -76,16 +76,24 @@ export default function MultiRowInputForm() {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold">영업 외 매출 수기 입력</CardTitle>
-        <Edit3 className="h-5 w-5 text-amber-500" />
+    <Card className="w-full border-none shadow-none bg-transparent">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-0 pt-0 pb-4">
+        <div className="space-y-1">
+          <CardTitle className="text-xl font-bold flex items-center gap-2 text-slate-600">
+            <PencilLine className="h-5 w-5" />
+            기타/수기 매출 입력
+          </CardTitle>
+          <CardDescription>배달 앱 외의 현금 매출이나 기타 항목을 직접 기록하세요.</CardDescription>
+        </div>
+        <Button variant="ghost" size="icon" className="text-slate-400" title="입력 가이드 보기">
+          <HelpCircle className="h-5 w-5" />
+        </Button>
       </CardHeader>
-      <CardContent>
+      <CardContent className="px-0">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
             <label htmlFor="manual-date" className="text-sm font-medium">
-              날짜
+              매출 기준일
             </label>
             <Input
               id="manual-date"
@@ -93,6 +101,7 @@ export default function MultiRowInputForm() {
               value={date}
               onChange={(e) => setDate(e.target.value)}
               disabled={loading}
+              className="bg-white"
             />
           </div>
 

@@ -1,10 +1,17 @@
-import { supabase } from './supabaseClient';
+/**
+ * 대시보드 데이터 서비스
+ * 전체 매출 지표, 차트 데이터 및 상품별 통계를 조회하는 로직을 담당합니다.
+ */
+import { supabase } from '../database/supabaseClient';
 import { startOfMonth, subDays, format, startOfWeek, endOfWeek, subWeeks } from 'date-fns';
 
 // 오늘 날짜를 'YYYY-MM-DD' 형식으로 가져오는 헬퍼 함수
 const getToday = (date: Date = new Date()) => format(date, 'yyyy-MM-dd');
 
-// KPI 카드 데이터를 가져오는 함수
+/**
+ * 특정 날짜 기준의 핵심 성과 지표(KPI) 데이터를 가져옵니다.
+ * (오늘 매출, 전일 대비 증감, 이번 달 누적 매출)
+ */
 export async function getKpiData(date: Date = new Date()) {
   const todayStr = getToday(date);
   const yesterdayStr = format(subDays(date, 1), 'yyyy-MM-dd');
@@ -67,7 +74,10 @@ export async function getKpiData(date: Date = new Date()) {
   };
 }
 
-// 차트 데이터를 가져오는 함수
+/**
+ * 대시보드용 차트 데이터를 가져옵니다.
+ * (최근 30일 일별 매출 추이)
+ */
 export async function getChartData(date: Date = new Date()) {
   const thirtyDaysAgoStr = format(subDays(date, 30), 'yyyy-MM-dd');
   const todayStr = getToday(date);
@@ -129,18 +139,20 @@ export async function getBestSellers(date: Date = new Date()) {
 export async function getAllSalesRecords(startDate?: string, endDate?: string) {
   let query = supabase
     .from('sales_orders')
-    .select('*')
+    .select('id, order_number, channel, order_at, gross_amount, net_amount, is_refund') // 필요한 컬럼만 선택
     .order('order_at', { ascending: false });
 
   if (startDate) {
-    query = query.gte('order_at', `${startDate}T00:00:00+09:00`);
+    const startUTC = new Date(`${startDate}T00:00:00+09:00`).toISOString();
+    query = query.gte('order_at', startUTC);
   }
   if (endDate) {
-    query = query.lte('order_at', `${endDate}T23:59:59+09:00`);
+    const endUTC = new Date(`${endDate}T23:59:59+09:00`).toISOString();
+    query = query.lte('order_at', endUTC);
   }
 
   if (!startDate && !endDate) {
-    query = query.limit(500);
+    query = query.limit(100); // 기본 로딩 한도 축소
   }
 
   const { data, error } = await query;
@@ -183,13 +195,13 @@ export async function getCategorySummary() {
 export async function getItemSummary(startDate?: string, endDate?: string) {
   let query = supabase
     .from('sales_items')
-    .select('item_name, total_amount, quantity, created_at');
+    .select('item_name, total_amount, quantity, sale_date');
 
   if (startDate) {
-    query = query.gte('created_at', `${startDate}T00:00:00+09:00`);
+    query = query.gte('sale_date', startDate);
   }
   if (endDate) {
-    query = query.lte('created_at', `${endDate}T23:59:59+09:00`);
+    query = query.lte('sale_date', endDate);
   }
 
   const { data, error } = await query;
@@ -321,7 +333,9 @@ export async function getHourlySalesData(date: Date = new Date()) {
   return hourlySales;
 }
 
-// 상품별 파이차트 데이터 (해당 날짜 상위 10개)
+/**
+ * 특정 날짜의 상품별 매출 비중 파이차트 데이터를 가져옵니다.
+ */
 export async function getItemPieChartData(date: Date = new Date()) {
   const startOfDay = `${getToday(date)}T00:00:00+09:00`;
   const endOfDay = `${getToday(date)}T23:59:59+09:00`;

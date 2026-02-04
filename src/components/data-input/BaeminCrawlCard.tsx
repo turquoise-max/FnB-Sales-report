@@ -1,14 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { crawlBaeminData } from '@/app/actions';
-import { Truck } from 'lucide-react';
+import { CloudDownload, HelpCircle } from 'lucide-react';
 
 export default function BaeminUpload() {
-  const [saleDate, setSaleDate] = useState('');
+  const [saleDate, setSaleDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -36,28 +36,37 @@ export default function BaeminUpload() {
   };
 
   return (
-    <Card className="w-full">
-      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-lg font-bold">배달의 민족 데이터 가져오기</CardTitle>
-        <Truck className="h-5 w-5 text-teal-500" />
+    <Card className="w-full border-none shadow-none bg-transparent">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 px-0 pt-0 pb-4">
+        <div className="space-y-1">
+          <CardTitle className="text-xl font-bold flex items-center gap-2 text-teal-600">
+            <CloudDownload className="h-5 w-5" />
+            배달의민족 자동 수집
+          </CardTitle>
+          <CardDescription>배민 사장님광장 로그인 후 실시간 주문 내역을 가져옵니다.</CardDescription>
+        </div>
+        <Button variant="ghost" size="icon" className="text-slate-400" title="수집 가이드 보기">
+          <HelpCircle className="h-5 w-5" />
+        </Button>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 px-0">
         <div className="space-y-2">
-          <label htmlFor="baemin-date" className="text-sm font-medium">수집 일자</label>
+          <label htmlFor="baemin-date" className="text-sm font-medium">수집 기준일</label>
           <Input
             id="baemin-date"
             type="date"
             value={saleDate}
             onChange={(e) => setSaleDate(e.target.value)}
             disabled={loading}
+            className="bg-white"
           />
         </div>
         <Button 
           onClick={handleCrawl} 
-          className="w-full bg-teal-500 hover:bg-teal-600 text-white" 
+          className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold h-12" 
           disabled={loading}
         >
-          {loading ? '데이터 수집 중 (약 30초 소요)...' : '배민 데이터 수집 및 저장'}
+          {loading ? '배민 사장님광장 접속 중...' : '배민 데이터 자동 수집 시작'}
         </Button>
         {message && (
           <p className={`text-sm ${message.type === 'error' ? 'text-red-500' : 'text-green-500'}`}>

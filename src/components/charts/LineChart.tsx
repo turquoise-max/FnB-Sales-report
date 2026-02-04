@@ -6,9 +6,10 @@ interface LineChartProps {
   data: any[];
   xKey?: string;
   yKey?: string;
+  lines?: { key: string; color: string; name: string }[]; // 멀티 라인 지원용
 }
 
-export default function SalesLineChart({ data, xKey = 'date', yKey = 'sales' }: LineChartProps) {
+export default function SalesLineChart({ data, xKey = 'date', yKey = 'sales', lines }: LineChartProps) {
   return (
     <ResponsiveContainer width="100%" height={300}>
       <LineChart data={data} margin={{ top: 5, right: 30, left: 20, bottom: 25 }}>
@@ -19,7 +20,20 @@ export default function SalesLineChart({ data, xKey = 'date', yKey = 'sales' }: 
           typeof value === 'number' ? `₩${value.toLocaleString('ko-KR')}` : value
         } />
         <Legend />
-        <Line type="monotone" dataKey={yKey} stroke="#8884d8" activeDot={{ r: 8 }} name="매출" />
+        {lines ? (
+          lines.map((line) => (
+            <Line 
+              key={line.key}
+              type="monotone" 
+              dataKey={line.key} 
+              stroke={line.color} 
+              name={line.name}
+              activeDot={{ r: 8 }} 
+            />
+          ))
+        ) : (
+          <Line type="monotone" dataKey={yKey} stroke="#8884d8" activeDot={{ r: 8 }} name="매출" />
+        )}
       </LineChart>
     </ResponsiveContainer>
   );

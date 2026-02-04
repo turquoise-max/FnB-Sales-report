@@ -1,4 +1,4 @@
-import { getWeeklyReportData } from '@/lib/reports-data';
+import { getWeeklyReportData } from '@/lib/services/reports-data';
 import ReportCard from './ReportCard';
 import SalesLineChart from '@/components/charts/LineChart';
 import { formatCurrency } from '@/lib/utils';
@@ -58,11 +58,18 @@ export default async function WeeklyReport({ date }: Props) {
           </ul>
         </div>
 
-        {/* 주간 추이 차트 */}
+        {/* 주간 추이 비교 차트 */}
         <div className="space-y-3">
-          <h3 className="font-semibold text-lg border-b pb-2">일별 매출 추이</h3>
-          <div className="h-[250px] w-full pt-4">
-            <SalesLineChart data={data.dailyTrend} xKey="date" yKey="sales" />
+          <h3 className="font-semibold text-lg border-b pb-2">전주 대비 요일별 매출 비교</h3>
+          <div className="h-[300px] w-full pt-4">
+            <SalesLineChart 
+              data={data.comparisonData} 
+              xKey="day" 
+              lines={[
+                { key: 'lastWeek', color: '#cbd5e1', name: '지난 주' },
+                { key: 'thisWeek', color: '#2563eb', name: '이번 주' }
+              ]} 
+            />
           </div>
         </div>
         

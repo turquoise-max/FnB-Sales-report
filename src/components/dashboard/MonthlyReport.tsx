@@ -1,4 +1,4 @@
-import { getMonthlyReportData } from '@/lib/reports-data';
+import { getMonthlyReportData } from '@/lib/services/reports-data';
 import ReportCard from './ReportCard';
 import PieChartWithFilter from '@/components/charts/PieChartWithFilter';
 import { formatCurrency } from '@/lib/utils';
@@ -30,6 +30,31 @@ export default async function MonthlyReport({ date }: Props) {
             </p>
           </div>
         </div>
+
+        {/* 목표 달성률 */}
+        <div className="space-y-3">
+          <h3 className="font-semibold text-lg border-b pb-2">목표 대비 달성률</h3>
+          <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg space-y-4">
+            <div className="flex justify-between items-end">
+              <div>
+                <p className="text-sm text-gray-500 font-medium">목표 매출</p>
+                <p className="text-lg font-bold">₩{formatCurrency(data.targetSales)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-gray-500 font-medium">현재 달성률</p>
+                <p className="text-2xl font-black text-blue-600">{data.achievementRate}%</p>
+              </div>
+            </div>
+            <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-4 overflow-hidden">
+              <div 
+                className="bg-blue-600 h-full transition-all duration-500 ease-out"
+                style={{ width: `${Math.min(data.achievementRate, 100)}%` }}
+              ></div>
+            </div>
+          </div>
+        </div>
+
+
 
         {/* 채널별 매출 상세 */}
         <div className="space-y-3">

@@ -1,5 +1,9 @@
+/**
+ * 배달의 민족 데이터 수집기 (Crawler)
+ * Browserless.io를 통해 원격 브라우저를 제어하여 배민 사장님광장의 매출 데이터를 자동 수집합니다.
+ */
 import { chromium } from 'playwright-core';
-import { supabase } from './supabaseClient';
+import { supabase } from '../database/supabaseClient';
 
 interface BaeminCrawlResult {
     success?: string;

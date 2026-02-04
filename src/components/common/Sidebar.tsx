@@ -12,6 +12,10 @@ import {
   Menu,
   X
 } from 'lucide-react';
+/**
+ * 사이드바 컴포넌트
+ * 애플리케이션의 주요 페이지 이동을 위한 네비게이션 메뉴를 제공합니다.
+ */
 import { cn } from '@/lib/utils';
 
 const menuItems = [
@@ -29,11 +33,6 @@ const menuItems = [
     title: '대시보드',
     href: '/dashboard',
     icon: LayoutDashboard,
-  },
-  {
-    title: '보고서',
-    href: '/reports',
-    icon: FileText,
   },
   {
     title: '설정',

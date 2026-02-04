@@ -41,9 +41,10 @@ function Calendar({
       captionLayout={captionLayout}
       formatters={{
         formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+          date.toLocaleString("ko-KR", { month: "long" }),
         ...formatters,
       }}
+      locale={undefined} // react-day-picker locale can be passed via props
       classNames={{
         root: cn("w-fit", defaultClassNames.root),
         months: cn(

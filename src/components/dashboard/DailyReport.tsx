@@ -1,4 +1,4 @@
-import { getDailyReportData } from '@/lib/reports-data';
+import { getDailyReportData } from '@/lib/services/reports-data';
 import ReportCard from './ReportCard';
 import { format } from 'date-fns';
 import SalesLineChart from '@/components/charts/LineChart';

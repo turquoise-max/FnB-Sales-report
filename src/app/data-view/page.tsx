@@ -3,7 +3,7 @@ import {
   getAllSalesRecords,
   getAllDailySummaries,
   getItemSummary,
-} from '@/lib/dashboard-data';
+} from '@/lib/services/dashboard-data';
 import {
   Table,
   TableBody,
@@ -13,7 +13,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DateRangePicker } from '@/components/DateRangePicker';
+import { DateRangePicker } from '@/components/common/DateRangePicker';
 
 export const dynamic = 'force-dynamic';
 
