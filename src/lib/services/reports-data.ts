@@ -1,10 +1,12 @@
 import { supabase } from '../database/supabaseClient';
 import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, subMonths, subWeeks } from 'date-fns';
+import { getKSTDate } from '../utils';
 
 // 일일 리포트 데이터
 export async function getDailyReportData(date: Date) {
-  const targetDate = format(date, 'yyyy-MM-dd');
-  const prevDate = format(subDays(date, 1), 'yyyy-MM-dd');
+  const kstDate = getKSTDate(date);
+  const targetDate = format(kstDate, 'yyyy-MM-dd');
+  const prevDate = format(subDays(kstDate, 1), 'yyyy-MM-dd');
 
   // 1. 해당 일자 매출 요약
   const { data: summaryData } = await supabase
@@ -36,9 +38,9 @@ export async function getDailyReportData(date: Date) {
 
   const hourlySales = Array.from({ length: 24 }, (_, i) => ({ hour: i, sales: 0 }));
   hourlyData?.forEach(record => {
-    // order_at이 UTC이므로 KST로 변환하여 시간 추출
-    const kstDate = new Date(record.order_at);
-    const hour = kstDate.getHours();
+    // order_at(UTC ISO)을 KST Date 객체로 변환하여 정확한 로컬 시간 추출
+    const kstOrderDate = getKSTDate(new Date(record.order_at));
+    const hour = kstOrderDate.getHours();
     if (hour >= 0 && hour < 24) {
       hourlySales[hour].sales += record.net_amount;
     }
@@ -84,11 +86,12 @@ export async function getDailyReportData(date: Date) {
 
 // 주간 리포트 데이터
 export async function getWeeklyReportData(date: Date) {
-  const weekStart = startOfWeek(date, { weekStartsOn: 1 });
+  const kstDate = getKSTDate(date);
+  const weekStart = startOfWeek(kstDate, { weekStartsOn: 1 });
   const start = format(weekStart, 'yyyy-MM-dd');
-  const end = format(endOfWeek(date, { weekStartsOn: 1 }), 'yyyy-MM-dd');
+  const end = format(endOfWeek(kstDate, { weekStartsOn: 1 }), 'yyyy-MM-dd');
   
-  const prevWeekStart = startOfWeek(subWeeks(date, 1), { weekStartsOn: 1 });
+  const prevWeekStart = startOfWeek(subWeeks(kstDate, 1), { weekStartsOn: 1 });
   const prevStart = format(prevWeekStart, 'yyyy-MM-dd');
   const prevEnd = format(endOfWeek(subWeeks(date, 1), { weekStartsOn: 1 }), 'yyyy-MM-dd');
 
@@ -150,10 +153,11 @@ export async function getWeeklyReportData(date: Date) {
 
 // 월간 리포트 데이터
 export async function getMonthlyReportData(date: Date) {
-  const monthStartStr = format(startOfMonth(date), 'yyyy-MM-dd');
-  const monthEndStr = format(endOfMonth(date), 'yyyy-MM-dd');
+  const kstDate = getKSTDate(date);
+  const monthStartStr = format(startOfMonth(kstDate), 'yyyy-MM-dd');
+  const monthEndStr = format(endOfMonth(kstDate), 'yyyy-MM-dd');
   
-  const prevMonthStartStr = format(startOfMonth(subMonths(date, 1)), 'yyyy-MM-dd');
+  const prevMonthStartStr = format(startOfMonth(subMonths(kstDate, 1)), 'yyyy-MM-dd');
   const prevMonthEndStr = format(endOfMonth(subMonths(date, 1)), 'yyyy-MM-dd');
 
   // 이번 달 매출

@@ -322,9 +322,9 @@ export async function getHourlySalesData(date: Date = new Date()) {
   const hourlySales = Array.from({ length: 24 }, (_, i) => ({ hour: `${i}시`, sales: 0 }));
 
   data.forEach(order => {
-    // order_at이 UTC이므로 KST로 변환하여 시간 추출
-    const kstDate = new Date(order.order_at);
-    const hour = kstDate.getHours();
+    // order_at(UTC ISO)을 KST Date 객체로 변환하여 정확한 로컬 시간 추출
+    const kstOrderDate = getKSTDate(new Date(order.order_at));
+    const hour = kstOrderDate.getHours();
     if (hour >= 0 && hour < 24) {
       hourlySales[hour].sales += order.net_amount;
     }
