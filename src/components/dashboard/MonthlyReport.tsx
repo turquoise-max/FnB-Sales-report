@@ -124,7 +124,7 @@ export default async function MonthlyReport({ date }: Props) {
           <div className="space-y-3">
             <h3 className="font-semibold text-lg border-b pb-2">주요 상품 현황</h3>
             <div className="border rounded-lg overflow-hidden bg-white dark:bg-slate-950">
-              <table className="w-full text-sm table-fixed"> {/* table-fixed를 추가하면 너비 제어가 쉬워집니다 */}
+              <table className="w-full text-sm table-fixed">
                 <thead className="bg-gray-50 dark:bg-gray-900">
                   <tr>
                     {/* 너비를 w-16, w-auto 등으로 명확히 배분 */}

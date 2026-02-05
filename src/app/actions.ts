@@ -175,7 +175,14 @@ export async function uploadSingleExcelFile(formData: FormData) {
       const totalAmount = parseInt(String(row[headerMap['총매출액']]).replace(/,/g, ''), 10) || 0;
 
       if (!receiptNumber || itemName.includes('소계') || itemName.includes('합계') || isNaN(quantity)) continue;
-      if (itemName.includes('벨')) { skippedCount++; continue; }
+      // 진동벨 호출기 행만 제외하고 실제 상품(예: 매너벨트)은 포함하도록 필터링 정밀화
+      if (itemName.startsWith('★★') && (itemName.includes('벨') || itemName.includes('진동벨'))) { skippedCount++; continue; }
+
+      // 반품(취소) 데이터인 경우 금액 및 수량 부호 강제 보정 (엑셀 데이터 정합성 확보)
+      const isRefundRow = transactionType === '반품';
+      const finalNetAmount = isRefundRow ? -Math.abs(netAmount) : netAmount;
+      const finalTotalAmount = isRefundRow ? -Math.abs(totalAmount) : totalAmount;
+      const finalQuantity = isRefundRow ? -Math.abs(quantity) : quantity;
 
       const key = `${receiptNumber}_${saleDate}_${paymentTime}`;
       if (!ordersMap.has(key)) {
@@ -186,20 +193,20 @@ export async function uploadSingleExcelFile(formData: FormData) {
             order_at: `${saleDate}T${paymentTime}+09:00`,
             gross_amount: 0,
             net_amount: 0,
-            is_refund: transactionType === '반품'
+            is_refund: isRefundRow
           },
           items: []
         });
       }
 
       const entry = ordersMap.get(key)!;
-      entry.order.gross_amount += totalAmount;
-      entry.order.net_amount += netAmount;
+      entry.order.gross_amount += finalTotalAmount;
+      entry.order.net_amount += finalNetAmount;
       entry.items.push({
         item_name: itemName,
-        quantity,
-        unit_price: Math.round(totalAmount / quantity),
-        total_amount: totalAmount,
+        quantity: finalQuantity,
+        unit_price: Math.abs(Math.round(totalAmount / quantity)),
+        total_amount: finalTotalAmount,
         sale_date: saleDate,
         order_at: `${saleDate}T${paymentTime}+09:00`
       });
@@ -460,7 +467,7 @@ export async function getKpiTarget(month: string) {
 }
 
 /**
- * 매출원가(재료비) 엑셀 데이터를 업로드합니다.
+ * 매출원가(재료비 및 재고 데이터) 엑셀 데이터를 업로드합니다.
  */
 export async function uploadMaterialCosts(formData: FormData) {
   const file = formData.get('file') as File;
@@ -469,26 +476,79 @@ export async function uploadMaterialCosts(formData: FormData) {
   try {
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const jsonData: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+    const jsonData: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
 
-    // 필드 매핑 로직 (샘플 형식에 따라 조정 필요)
-    // 예시: 일자, 품목명, 금액, 공급처
-    const costsToInsert = jsonData.map(row => ({
-      cost_date: row['일자'] || row['날짜'],
-      item_name: row['품목명'] || row['항목'],
-      category: row['카테고리'] || '재료비',
-      amount: parseInt(String(row['금액'] || row['매입금액']).replace(/,/g, ''), 10) || 0,
-      vendor: row['공급처'] || row['거래처'],
-    })).filter(c => c.cost_date && c.item_name);
+    if (!jsonData || jsonData.length === 0) return { error: '엑셀 파일에 데이터가 없습니다.' };
 
-    if (costsToInsert.length === 0) return { error: '유효한 데이터가 없습니다.' };
+    const parseNum = (v: any) => {
+      if (typeof v === 'number') return v;
+      if (!v || String(v).trim() === '-') return 0;
+      return parseFloat(String(v).replace(/,/g, '').trim()) || 0;
+    };
+
+    const formatDate = (v: any) => {
+      if (!v) return null;
+      const str = String(v).trim();
+      // 2026.1.1 -> 2026-01-01
+      if (str.includes('.')) {
+        const parts = str.split('.');
+        if (parts.length >= 3) {
+          return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        }
+      }
+      return str;
+    };
+
+    // 제시된 헤더 명칭에 맞춘 정밀 매핑 (트림 처리 및 다양한 명칭 대응)
+    const costsToInsert = jsonData.map(row => {
+      const cleanRow: any = {};
+      Object.keys(row).forEach(key => {
+        cleanRow[key.trim()] = row[key];
+      });
+
+      const rawDate = cleanRow['날짜'] || cleanRow['일자'];
+      return {
+        cost_date: formatDate(rawDate),
+        no: parseNum(cleanRow['NO']),
+        part: cleanRow['파트'],
+        classification: cleanRow['구분'],
+        sub_category: cleanRow['분류'],
+        item_name: cleanRow['제품명'] || cleanRow['품목명'],
+        input_unit: cleanRow['입고 단위'],
+        input_qty: parseNum(cleanRow['입수 수량']),
+        item_weight: parseNum(cleanRow['낱개 중량']),
+        unit: cleanRow['단위'],
+        purchase_price: Math.round(parseNum(cleanRow['입고가'])),
+        vat_type: cleanRow['VAT'],
+        prev_stock: parseNum(cleanRow['이월 재고']),
+        in_stock: parseNum(cleanRow['입고']),
+        current_stock: parseNum(cleanRow['재고']),
+        usage_amount: parseNum(cleanRow['사용량']),
+        remark: cleanRow['비고']
+      };
+    }).filter(c => c.cost_date && c.item_name);
+
+    if (costsToInsert.length === 0) return { error: '유효한 데이터가 없습니다. (날짜와 제품명 컬럼을 확인해주세요)' };
+
+    // 해당 월의 데이터 삭제 후 재삽입 (Overwrite)
+    const firstDate = costsToInsert[0].cost_date;
+    const monthStart = `${firstDate?.substring(0, 7)}-01`;
+    const nextMonth = new Date(monthStart);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const monthEnd = nextMonth.toISOString().split('T')[0];
+
+    await supabase.from('material_costs')
+      .delete()
+      .gte('cost_date', monthStart)
+      .lt('cost_date', monthEnd);
 
     const { error } = await supabase.from('material_costs').insert(costsToInsert);
     if (error) throw error;
 
-    return { success: `${costsToInsert.length}건의 재료비 내역이 저장되었습니다.` };
+    return { success: `${costsToInsert.length}건의 재고/원가 내역이 저장되었습니다.` };
   } catch (error: any) {
-    return { error: `재료비 처리 오류: ${error.message}` };
+    console.error('Material cost upload error:', error);
+    return { error: `매출원가 처리 오류: ${error.message}` };
   }
 }
 
@@ -502,23 +562,63 @@ export async function uploadSgaCosts(formData: FormData) {
   try {
     const buffer = await file.arrayBuffer();
     const workbook = XLSX.read(buffer, { type: 'buffer' });
-    const jsonData: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+    const jsonData: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]], { raw: false });
 
-    // 예시: 일자, 카테고리, 품목명, 금액
-    const costsToInsert = jsonData.map(row => ({
-      cost_date: row['일자'] || row['날짜'],
-      category: row['카테고리'] || row['구분'] || '판관비',
-      item_name: row['품목명'] || row['내용'],
-      amount: parseInt(String(row['금액']).replace(/,/g, ''), 10) || 0,
-    })).filter(c => c.cost_date && c.category);
+    const parseNum = (v: any) => {
+      if (typeof v === 'number') return v;
+      if (!v || String(v).trim() === '-') return 0;
+      return parseInt(String(v).replace(/,/g, '').trim(), 10) || 0;
+    };
 
-    if (costsToInsert.length === 0) return { error: '유효한 데이터가 없습니다.' };
+    const formatDate = (v: any) => {
+      if (!v) return null;
+      const str = String(v).trim();
+      if (str.includes('.')) {
+        const parts = str.split('.');
+        if (parts.length >= 3) {
+          return `${parts[0]}-${parts[1].padStart(2, '0')}-${parts[2].padStart(2, '0')}`;
+        }
+      }
+      return str;
+    };
+
+    // 제공된 헤더 명칭에 맞춘 정밀 매핑
+    const costsToInsert = jsonData.map(row => {
+      const cleanRow: any = {};
+      Object.keys(row).forEach(key => {
+        cleanRow[key.trim()] = row[key];
+      });
+
+      return {
+        cost_date: formatDate(cleanRow['날짜'] || cleanRow['일자']),
+        main_category: cleanRow['대분류'] || cleanRow['구분'],
+        sub_category: cleanRow['계정항목'] || cleanRow['카테고리'],
+        details: cleanRow['적요(상세내용)'] || cleanRow['적요'],
+        amount: parseNum(cleanRow['금액']),
+        remark: cleanRow['비고(증감원인/개선사항)'] || cleanRow['비고']
+      };
+    }).filter(c => c.cost_date && c.sub_category);
+
+    if (costsToInsert.length === 0) return { error: '유효한 데이터가 없습니다. (날짜와 금액 컬럼 필수)' };
+
+    // 해당 월의 데이터 삭제 후 재삽입 (Overwrite)
+    const firstDate = costsToInsert[0].cost_date;
+    const monthStart = `${firstDate?.substring(0, 7)}-01`;
+    const nextMonth = new Date(monthStart);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    const monthEnd = nextMonth.toISOString().split('T')[0];
+
+    await supabase.from('sg_and_a_costs')
+      .delete()
+      .gte('cost_date', monthStart)
+      .lt('cost_date', monthEnd);
 
     const { error } = await supabase.from('sg_and_a_costs').insert(costsToInsert);
     if (error) throw error;
 
     return { success: `${costsToInsert.length}건의 판관비 내역이 저장되었습니다.` };
   } catch (error: any) {
+    console.error('SGA cost upload error:', error);
     return { error: `판관비 처리 오류: ${error.message}` };
   }
 }

@@ -174,31 +174,64 @@ export async function runBaeminCrawler(startDate: string, endDate: string): Prom
             // 월 이동 로직
             let moveCount = 0;
             while (moveCount < 24) {
+                // 현재 화면에 보이는 모든 캘린더 캡션 확인
                 const captions = await page.locator('caption[data-atelier-component="Typography"]').allInnerTexts();
                 const isMatch = captions.some(c => c.replace(/\s+/g, '').includes(targetHeader.replace(/\s+/g, '')));
-                if (isMatch) break;
-
-                const currentMonthYear = captions[0] || ""; // 대략적인 현재 위치 파악
-                const [currYear, currMonth] = currentMonthYear.match(/\d+/g)?.map(Number) || [0,0];
                 
-                const isFuture = (year > currYear) || (year === currYear && month > currMonth);
-                const navBtn = isFuture 
-                    ? page.locator('button[aria-label="다음 달"]').first()
-                    : page.locator('button[aria-label="이전 달"]').first();
-
-                if (await navBtn.isVisible()) {
-                    await navBtn.click({ force: true });
-                    await page.waitForTimeout(800);
-                } else {
+                if (isMatch) {
+                    console.log(`[Baemin] 목표 월(${targetHeader}) 발견`);
                     break;
+                }
+
+                // 이동 방향 결정 (첫 번째 캡션 기준)
+                const currentMonthYear = captions[0] || "";
+                const dateMatches = currentMonthYear.match(/\d+/g);
+                if (dateMatches && dateMatches.length >= 2) {
+                    const currYear = Number(dateMatches[0]);
+                    const currMonth = Number(dateMatches[1]);
+                    
+                    const isFuture = (year > currYear) || (year === currYear && month > currMonth);
+                    const navBtn = isFuture 
+                        ? page.locator('button[aria-label="다음 달"]').first()
+                        : page.locator('button[aria-label="이전 달"]').first();
+
+                    if (await navBtn.isVisible()) {
+                        await navBtn.click({ force: true });
+                        await page.waitForTimeout(1000);
+                    } else {
+                        break;
+                    }
+                } else {
+                    // 캡션을 못 읽을 경우 기본적으로 이전 달 시도
+                    await page.locator('button[aria-label="이전 달"]').first().click({ force: true });
+                    await page.waitForTimeout(1000);
                 }
                 moveCount++;
             }
 
-            // 일자 클릭
-            const dayBtn = page.locator('button, [role="button"]').filter({ hasText: new RegExp(`^${day}$`) }).first();
-            await dayBtn.click({ force: true });
-            await page.waitForTimeout(500);
+            // 일자 클릭: 제공된 HTML 구조(table role="grid" 내 caption)에 맞춘 정밀 타겟팅
+            console.log(`[Baemin] ${targetHeader} 내의 ${day}일 클릭 시도`);
+            
+            // 1. 해당 연/월 캡션을 포함하는 정확한 <table> 요소를 찾음
+            const targetTable = page.locator('table[role="grid"]').filter({ 
+                has: page.locator('caption').filter({ hasText: targetHeader }) 
+            });
+
+            // 2. 해당 테이블 내부에서만 "N일" aria-label을 가진 버튼 탐색
+            const dayBtn = targetTable.locator('button').filter({ 
+                hasText: new RegExp(`^${day}$`) 
+            }).first();
+
+            if (await dayBtn.count() > 0) {
+                console.log(`[Baemin] 정밀 매칭 성공: ${targetHeader} 영역의 ${day}일 클릭`);
+                await dayBtn.click({ force: true });
+            } else {
+                console.log(`[Baemin] 정밀 매칭 실패, aria-label 직접 매칭 시도`);
+                // 3. 폴백: 해당 테이블 내 aria-label="${day}일" 직접 탐색
+                const ariaLabelBtn = targetTable.locator(`button[aria-label="${day}일"]`).first();
+                await ariaLabelBtn.click({ force: true });
+            }
+            await page.waitForTimeout(1000);
         };
 
         console.log(`[Baemin] 6-1. 시작일(${startDate}) 선택`);

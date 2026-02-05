@@ -44,24 +44,38 @@ CREATE TABLE IF NOT EXISTS daily_summary (
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 4. 매출원가(재료비) 테이블
+-- 4. 매출원가(재료비/재고) 테이블
 CREATE TABLE IF NOT EXISTS material_costs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    cost_date DATE NOT NULL,
-    item_name VARCHAR(255) NOT NULL,
-    category VARCHAR(100),
-    amount INTEGER NOT NULL DEFAULT 0,
-    vendor VARCHAR(255),
+    cost_date DATE NOT NULL,              -- 날짜
+    no INTEGER,                            -- NO
+    part VARCHAR(100),                     -- 파트
+    classification VARCHAR(100),           -- 구분
+    sub_category VARCHAR(100),             -- 분류
+    item_name VARCHAR(255) NOT NULL,       -- 제품명
+    input_unit VARCHAR(50),                -- 입고 단위
+    input_qty NUMERIC,                     -- 입수 수량
+    item_weight NUMERIC,                   -- 낱개 중량
+    unit VARCHAR(50),                      -- 단위
+    purchase_price INTEGER DEFAULT 0,      -- 입고가
+    vat_type VARCHAR(50),                  -- VAT
+    prev_stock NUMERIC DEFAULT 0,          -- 이월 재고
+    in_stock NUMERIC DEFAULT 0,            -- 입고
+    current_stock NUMERIC DEFAULT 0,       -- 재고
+    usage_amount NUMERIC DEFAULT 0,        -- 사용량
+    remark TEXT,                           -- 비고
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
--- 5. 판관비 테이블
+-- 5. 판관비(운영비) 테이블
 CREATE TABLE IF NOT EXISTS sg_and_a_costs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    cost_date DATE NOT NULL,
-    category VARCHAR(100) NOT NULL, -- 임대료, 인건비, 공과금 등
-    item_name VARCHAR(255),
-    amount INTEGER NOT NULL DEFAULT 0,
+    cost_date DATE NOT NULL,              -- 날짜
+    main_category VARCHAR(100),            -- 대분류 (고정비/변동비)
+    sub_category VARCHAR(100),             -- 계정항목
+    details TEXT,                          -- 적요(상세내용)
+    amount BIGINT NOT NULL DEFAULT 0,      -- 금액
+    remark TEXT,                           -- 비고
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

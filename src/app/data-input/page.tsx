@@ -61,6 +61,7 @@ export default function DataInputPage() {
                 title="매출원가(재료비) 업로드"
                 description="식자재 및 부재료 매입 내역 엑셀 파일을 업로드하세요."
                 onUpload={uploadMaterialCosts}
+                templateUrl="/templates/material_cost_template.csv"
                 colorClass="text-orange-600"
               />
             </div>
@@ -75,6 +76,7 @@ export default function DataInputPage() {
                 title="판관비(운영비) 업로드"
                 description="임대료, 인건비, 공과금 등 운영 비용 엑셀 파일을 업로드하세요."
                 onUpload={uploadSgaCosts}
+                templateUrl="/templates/sga_cost_template.csv"
                 colorClass="text-purple-600"
               />
             </div>
