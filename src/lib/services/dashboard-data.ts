@@ -203,6 +203,7 @@ export async function getItemSummary(startDate?: string, endDate?: string) {
       sale_date,
       sales_orders!inner(channel)
     `)
+    // POS 및 BAEMIN 채널만 포함
     .in('sales_orders.channel', ['POS', 'BAEMIN']);
 
   if (startDate) {
