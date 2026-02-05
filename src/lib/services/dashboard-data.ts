@@ -196,7 +196,14 @@ export async function getCategorySummary() {
 export async function getItemSummary(startDate?: string, endDate?: string) {
   let query = supabase
     .from('sales_items')
-    .select('item_name, total_amount, quantity, sale_date');
+    .select(`
+      item_name, 
+      total_amount, 
+      quantity, 
+      sale_date,
+      sales_orders!inner(channel)
+    `)
+    .in('sales_orders.channel', ['POS', 'BAEMIN']);
 
   if (startDate) {
     query = query.gte('sale_date', startDate);
