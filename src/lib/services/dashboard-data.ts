@@ -193,17 +193,21 @@ export async function getCategorySummary() {
   return [];
 }
 
+/**
+ * [누적 데이터 페이지용] 상품별 판매 요약 정보를 조회합니다.
+ * POS 및 배달의민족 데이터만 합산하며, 상품별 단가 정보를 포함합니다.
+ */
 export async function getItemSummary(startDate?: string, endDate?: string) {
   let query = supabase
     .from('sales_items')
     .select(`
       item_name, 
+      unit_price,
       total_amount, 
       quantity, 
       sale_date,
       sales_orders!inner(channel)
     `)
-    // POS 및 BAEMIN 채널만 포함
     .in('sales_orders.channel', ['POS', 'BAEMIN']);
 
   if (startDate) {
@@ -220,18 +224,28 @@ export async function getItemSummary(startDate?: string, endDate?: string) {
     return [];
   }
 
+  // 상품별로 그룹화 및 합산
   const itemMap = data.reduce((acc, record) => {
     if (!acc[record.item_name]) {
-      acc[record.item_name] = { totalSales: 0, totalQuantity: 0 };
+      acc[record.item_name] = { 
+        totalSales: 0, 
+        totalQuantity: 0,
+        unitPrice: record.unit_price // DB에 저장된 단가 사용
+      };
     }
     acc[record.item_name].totalSales += record.total_amount;
     acc[record.item_name].totalQuantity += record.quantity;
+    // 단가가 0인 경우(일부 누락 등) 대비하여 최신 데이터의 단가로 갱신
+    if (record.unit_price > 0) {
+      acc[record.item_name].unitPrice = record.unit_price;
+    }
     return acc;
-  }, {} as { [key: string]: { totalSales: number; totalQuantity: number } });
+  }, {} as Record<string, { totalSales: number; totalQuantity: number; unitPrice: number }>);
 
   return Object.entries(itemMap)
     .map(([itemName, data]) => ({
       itemName,
+      unitPrice: data.unitPrice,
       totalSales: data.totalSales,
       totalQuantity: data.totalQuantity,
     }))

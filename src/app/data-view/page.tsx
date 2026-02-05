@@ -177,7 +177,10 @@ export default async function DataViewPage({ searchParams }: PageProps) {
         <TabsContent value="item">
           <Card>
             <CardHeader>
-              <CardTitle>상품별 집계 ({itemSummary.length}개)</CardTitle>
+              <div className="flex flex-col gap-1">
+                <CardTitle>상품별 집계 ({itemSummary.length}개)</CardTitle>
+                <p className="text-sm text-muted-foreground italic">* POS 및 배달의민족 데이터만 합산됩니다.</p>
+              </div>
             </CardHeader>
             <CardContent>
               <div className="overflow-x-auto max-h-[600px] overflow-y-auto">
@@ -185,14 +188,16 @@ export default async function DataViewPage({ searchParams }: PageProps) {
                   <TableHeader>
                     <TableRow>
                       <TableHead>상품명</TableHead>
+                      <TableHead className="text-right">단가</TableHead>
                       <TableHead className="text-right">총 판매량</TableHead>
                       <TableHead className="text-right">총 매출액</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {itemSummary.map((item) => (
+                    {itemSummary.map((item: any) => (
                       <TableRow key={item.itemName}>
                         <TableCell className="font-medium">{item.itemName}</TableCell>
+                        <TableCell className="text-right text-muted-foreground">₩{formatCurrency(item.unitPrice)}</TableCell>
                         <TableCell className="text-right">{item.totalQuantity}개</TableCell>
                         <TableCell className="text-right font-semibold">₩{formatCurrency(item.totalSales)}</TableCell>
                       </TableRow>

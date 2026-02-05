@@ -15,18 +15,17 @@ export default function PieChartWithFilter({ data }: SimplePieChartProps) {
     <div className="space-y-4">
       {/* 필터 제거됨 */}
       
-      <ResponsiveContainer width="100%" height={300}>
-        <PieChart>
+      <ResponsiveContainer width="100%" height={220}>
+        <PieChart margin={{ top: 40, right: 0, left: 0, bottom: 0 }}>
           <Pie
             data={data}
             cx="50%"
-            cy="50%"
+            cy="40%"
             labelLine={false}
-            outerRadius={80}
+            outerRadius={65}
             fill="#8884d8"
             dataKey="value"
             nameKey="name"
-            label={(entry) => `${entry.name}`}
           >
             {data.map((entry, index) => (
               <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
@@ -37,7 +36,14 @@ export default function PieChartWithFilter({ data }: SimplePieChartProps) {
             layout="horizontal" 
             verticalAlign="bottom" 
             align="center"
-            wrapperStyle={{ paddingTop: '20px', fontSize: '12px' }}
+            iconSize={10}
+            wrapperStyle={{ 
+              fontSize: '11px',
+              bottom: 0,
+              left: 0,
+              right: 0,
+              paddingTop: '10px'
+            }}
           />
         </PieChart>
       </ResponsiveContainer>

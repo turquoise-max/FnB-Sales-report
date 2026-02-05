@@ -1,6 +1,7 @@
 import { getWeeklyReportData } from '@/lib/services/reports-data';
 import ReportCard from './ReportCard';
 import SalesLineChart from '@/components/charts/LineChart';
+import PieChartWithFilter from '@/components/charts/PieChartWithFilter';
 import { formatCurrency } from '@/lib/utils';
 
 interface Props {
@@ -35,27 +36,51 @@ export default async function WeeklyReport({ date }: Props) {
           </div>
         </div>
 
-        {/* 채널별 매출 상세 */}
+        {/* 채널별 매출 현황 */}
         <div className="space-y-3">
           <h3 className="font-semibold text-lg border-b pb-2">채널별 매출 현황</h3>
-          <ul className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-            <li className="flex justify-between">
-              <span className="text-gray-500">POS 매출</span>
-              <span className="font-medium">₩{formatCurrency(data.channelSales.posSales)}</span>
-            </li>
-            <li className="flex justify-between">
-              <span className="text-gray-500">배달의민족</span>
-              <span className="font-medium">₩{formatCurrency(data.channelSales.baeminSales)}</span>
-            </li>
-            <li className="flex justify-between">
-              <span className="text-gray-500">쿠팡이츠</span>
-              <span className="font-medium">₩{formatCurrency(data.channelSales.coupangSales)}</span>
-            </li>
-            <li className="flex justify-between">
-              <span className="text-gray-500">수기 매출</span>
-              <span className="font-medium">₩{formatCurrency(data.channelSales.manualSales)}</span>
-            </li>
-          </ul>
+          <div className="flex flex-col md:flex-row items-center justify-start gap-0">
+            <div className="w-full md:w-3/5 h-[220px]">
+              <PieChartWithFilter data={[
+                { name: 'POS', value: data.channelSales.posSales },
+                { name: '배민', value: data.channelSales.baeminSales },
+                { name: '쿠팡', value: data.channelSales.coupangSales },
+                { name: '기타/수기', value: data.channelSales.manualSales },
+              ].filter(c => c.value > 0)} />
+            </div>
+            <div className="w-full md:w-2/5 px-4">
+              <ul className="space-y-3 text-sm">
+                <li className="flex justify-between items-center py-1 border-b border-slate-50">
+                  <span className="text-gray-500 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#0088FE]"></span>
+                    POS 매출
+                  </span>
+                  <span className="font-bold">₩{formatCurrency(data.channelSales.posSales)}</span>
+                </li>
+                <li className="flex justify-between items-center py-1 border-b border-slate-50">
+                  <span className="text-gray-500 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#00C49F]"></span>
+                    배달의민족
+                  </span>
+                  <span className="font-bold">₩{formatCurrency(data.channelSales.baeminSales)}</span>
+                </li>
+                <li className="flex justify-between items-center py-1 border-b border-slate-50">
+                  <span className="text-gray-500 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#FFBB28]"></span>
+                    쿠팡이츠
+                  </span>
+                  <span className="font-bold">₩{formatCurrency(data.channelSales.coupangSales)}</span>
+                </li>
+                <li className="flex justify-between items-center py-1">
+                  <span className="text-gray-500 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-[#FF8042]"></span>
+                    기타/수기
+                  </span>
+                  <span className="font-bold">₩{formatCurrency(data.channelSales.manualSales)}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
         </div>
 
         {/* 주간 추이 비교 차트 */}
