@@ -458,3 +458,67 @@ export async function getKpiTarget(month: string) {
     return 0;
   }
 }
+
+/**
+ * 매출원가(재료비) 엑셀 데이터를 업로드합니다.
+ */
+export async function uploadMaterialCosts(formData: FormData) {
+  const file = formData.get('file') as File;
+  if (!file) return { error: '파일이 없습니다.' };
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const jsonData: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+    // 필드 매핑 로직 (샘플 형식에 따라 조정 필요)
+    // 예시: 일자, 품목명, 금액, 공급처
+    const costsToInsert = jsonData.map(row => ({
+      cost_date: row['일자'] || row['날짜'],
+      item_name: row['품목명'] || row['항목'],
+      category: row['카테고리'] || '재료비',
+      amount: parseInt(String(row['금액'] || row['매입금액']).replace(/,/g, ''), 10) || 0,
+      vendor: row['공급처'] || row['거래처'],
+    })).filter(c => c.cost_date && c.item_name);
+
+    if (costsToInsert.length === 0) return { error: '유효한 데이터가 없습니다.' };
+
+    const { error } = await supabase.from('material_costs').insert(costsToInsert);
+    if (error) throw error;
+
+    return { success: `${costsToInsert.length}건의 재료비 내역이 저장되었습니다.` };
+  } catch (error: any) {
+    return { error: `재료비 처리 오류: ${error.message}` };
+  }
+}
+
+/**
+ * 판관비 엑셀 데이터를 업로드합니다.
+ */
+export async function uploadSgaCosts(formData: FormData) {
+  const file = formData.get('file') as File;
+  if (!file) return { error: '파일이 없습니다.' };
+
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'buffer' });
+    const jsonData: any[] = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]);
+
+    // 예시: 일자, 카테고리, 품목명, 금액
+    const costsToInsert = jsonData.map(row => ({
+      cost_date: row['일자'] || row['날짜'],
+      category: row['카테고리'] || row['구분'] || '판관비',
+      item_name: row['품목명'] || row['내용'],
+      amount: parseInt(String(row['금액']).replace(/,/g, ''), 10) || 0,
+    })).filter(c => c.cost_date && c.category);
+
+    if (costsToInsert.length === 0) return { error: '유효한 데이터가 없습니다.' };
+
+    const { error } = await supabase.from('sg_and_a_costs').insert(costsToInsert);
+    if (error) throw error;
+
+    return { success: `${costsToInsert.length}건의 판관비 내역이 저장되었습니다.` };
+  } catch (error: any) {
+    return { error: `판관비 처리 오류: ${error.message}` };
+  }
+}

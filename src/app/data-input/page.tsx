@@ -4,6 +4,8 @@ import BaeminUpload from '@/components/data-input/BaeminCrawlCard';
 import CoupangUpload from '@/components/data-input/CoupangUploadCard';
 import MultiRowInputForm from '@/components/data-input/ManualSalesForm';
 import KpiTargetForm from '@/components/data-input/KpiTargetForm';
+import CostUploadCard from '@/components/data-input/CostUploadCard';
+import { uploadMaterialCosts, uploadSgaCosts } from '@/app/actions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function DataInputPage() {
@@ -53,28 +55,30 @@ export default function DataInputPage() {
 
         {/* 매출원가 탭 */}
         <TabsContent value="material">
-          <Card>
-            <CardHeader>
-              <CardTitle>매출원가(재료비) 관리</CardTitle>
-              <CardDescription>식자재 및 재료비 관련 엑셀 파일을 업로드하거나 내역을 관리합니다.</CardDescription>
-            </CardHeader>
-            <CardContent className="py-10 text-center text-muted-foreground italic">
-              준비 중인 기능입니다. (엑셀 업로드 컴포넌트 추가 예정)
-            </CardContent>
-          </Card>
+          <div className="max-w-2xl mx-auto py-10">
+            <div className="p-8 bg-white rounded-2xl border shadow-sm">
+              <CostUploadCard 
+                title="매출원가(재료비) 업로드"
+                description="식자재 및 부재료 매입 내역 엑셀 파일을 업로드하세요."
+                onUpload={uploadMaterialCosts}
+                colorClass="text-orange-600"
+              />
+            </div>
+          </div>
         </TabsContent>
 
         {/* 판관비 탭 */}
         <TabsContent value="sg_and_a">
-          <Card>
-            <CardHeader>
-              <CardTitle>판관비 관리</CardTitle>
-              <CardDescription>임대료, 인건비, 공과금 등 판매관리비 내역을 관리합니다.</CardDescription>
-            </CardHeader>
-            <CardContent className="py-10 text-center text-muted-foreground italic">
-              준비 중인 기능입니다. (엑셀 업로드 컴포넌트 추가 예정)
-            </CardContent>
-          </Card>
+          <div className="max-w-2xl mx-auto py-10">
+            <div className="p-8 bg-white rounded-2xl border shadow-sm">
+              <CostUploadCard 
+                title="판관비(운영비) 업로드"
+                description="임대료, 인건비, 공과금 등 운영 비용 엑셀 파일을 업로드하세요."
+                onUpload={uploadSgaCosts}
+                colorClass="text-purple-600"
+              />
+            </div>
+          </div>
         </TabsContent>
 
         {/* KPI 탭 */}
