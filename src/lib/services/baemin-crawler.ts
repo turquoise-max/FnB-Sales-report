@@ -12,8 +12,7 @@ interface BaeminCrawlResult {
 }
 
 export async function runBaeminCrawler(startDate: string, endDate: string): Promise<BaeminCrawlResult> {
-    // const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
-    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === 'production';
+    const isProduction = process.env.NODE_ENV === 'production' || process.env.VERCEL === '1';
     const BROWSERLESS_API_KEY = process.env.BROWSERLESS_API_KEY;
 
     let browser;
