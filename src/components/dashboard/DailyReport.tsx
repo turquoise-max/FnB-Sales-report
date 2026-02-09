@@ -45,41 +45,27 @@ export default async function DailyReport({ date }: Props) {
 
         {/* 채널별 매출 현황 */}
         <div className="space-y-3">
-          <h3 className="font-semibold text-lg border-b pb-2">채널별 매출 현황</h3>
-          <div className="flex flex-col md:flex-row items-center justify-start gap-0">
-            <div className="w-full md:w-3/5 h-[220px]">
+          <h3 className="font-semibold text-lg border-b pb-2 text-center md:text-left">채널별 매출 현황</h3>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4">
+            <div className="w-full md:w-1/2 h-[240px]">
               <PieChartWithFilter data={channelChartData} />
             </div>
-            <div className="w-full md:w-2/5 px-4">
-              <ul className="space-y-3 text-sm">
-                <li className="flex justify-between items-center py-1 border-b border-slate-50">
-                  <span className="text-gray-500 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#0088FE]"></span>
-                    POS 매출
-                  </span>
-                  <span className="font-bold">₩{formatCurrency(data.summary.posSales)}</span>
-                </li>
-                <li className="flex justify-between items-center py-1 border-b border-slate-50">
-                  <span className="text-gray-500 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#00C49F]"></span>
-                    배달의민족
-                  </span>
-                  <span className="font-bold">₩{formatCurrency(data.summary.baeminSales)}</span>
-                </li>
-                <li className="flex justify-between items-center py-1 border-b border-slate-50">
-                  <span className="text-gray-500 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#FFBB28]"></span>
-                    쿠팡이츠
-                  </span>
-                  <span className="font-bold">₩{formatCurrency(data.summary.coupangSales)}</span>
-                </li>
-                <li className="flex justify-between items-center py-1">
-                  <span className="text-gray-500 flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-[#FF8042]"></span>
-                    기타/수기
-                  </span>
-                  <span className="font-bold">₩{formatCurrency(data.summary.manualSales)}</span>
-                </li>
+            <div className="w-full md:w-1/2 max-w-[280px]">
+              <ul className="space-y-2 text-sm">
+                {[
+                  { label: 'POS 매출', value: data.summary.posSales, color: '#0088FE' },
+                  { label: '배달의민족', value: data.summary.baeminSales, color: '#00C49F' },
+                  { label: '쿠팡이츠', value: data.summary.coupangSales, color: '#FFBB28' },
+                  { label: '기타/수기', value: data.summary.manualSales, color: '#FF8042' },
+                ].map((item) => (
+                  <li key={item.label} className="flex justify-between items-center p-2 rounded-lg bg-gray-50/50 dark:bg-gray-800/50">
+                    <span className="text-gray-500 flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: item.color }}></span>
+                      {item.label}
+                    </span>
+                    <span className="font-bold">₩{formatCurrency(item.value)}</span>
+                  </li>
+                ))}
               </ul>
             </div>
           </div>

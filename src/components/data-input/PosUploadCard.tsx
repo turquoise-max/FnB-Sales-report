@@ -5,10 +5,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { uploadSingleExcelFile } from '@/app/actions';
-import { FileUp, HelpCircle } from 'lucide-react';
+import { FileUp } from 'lucide-react';
+import HelpModal from '@/components/common/HelpModal';
 
 export default function FileUpload() {
   const [files, setFiles] = useState<File[]>([]);
+  const [inputKey, setInputKey] = useState(Date.now()); // 파일 입력을 초기화하기 위한 키
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
@@ -50,6 +52,7 @@ export default function FileUpload() {
     if (failCount === 0) {
       setMessage({ type: 'success', text: `${successCount}개 파일 업로드 완료!` });
       setFiles([]);
+      setInputKey(Date.now()); // 파일 입력 초기화
     } else {
       setMessage({ 
         type: successCount > 0 ? 'success' : 'error', 
@@ -68,16 +71,36 @@ export default function FileUpload() {
             <FileUp className="h-5 w-5" />
             POS 매출 업로드
           </CardTitle>
-          <CardDescription>POS 시스템의 '일자별/상품별 매출 현황' 엑셀 파일을 업로드하세요.</CardDescription>
+          <CardDescription>POS 시스템의 '영수증별 매출 상세 현황' 엑셀 파일을 업로드하세요.</CardDescription>
         </div>
-        <Button variant="ghost" size="icon" className="text-slate-400" title="다운로드 방법 보기">
-          <HelpCircle className="h-5 w-5" />
-        </Button>
+        <HelpModal 
+          title="POS 매출 업로드 방법"
+          description="POS 관리자 페이지에서 엑셀 파일을 다운로드하여 업로드하세요."
+          steps={[
+            {
+              title: "POS 관리자 사이트 접속",
+              description: "사용 중인 POS 시스템의 웹 관리자 페이지에 로그인합니다."
+            },
+            {
+              title: "매출 현황 메뉴 이동",
+              description: "'매출 관리' > '매출 현황' > '영수증별 매출 상세 현황' 메뉴를 선택합니다."
+            },
+            {
+              title: "엑셀 다운로드",
+              description: "조회 기간(일별)을 설정한 후 '엑셀 저장' 버튼을 클릭하여 파일을 다운로드합니다."
+            },
+            {
+              title: "파일 업로드",
+              description: "다운로드한 파일을 업로드 영역에서 선택하세요. 다중 선택도 가능합니다."
+            }
+          ]}
+        />
       </CardHeader>
       <CardContent className="space-y-4 px-0">
         <div className="space-y-2">
           <label htmlFor="file-upload" className="text-sm font-medium">엑셀 파일 선택 (다중 선택 가능)</label>
           <Input 
+            key={inputKey}
             id="file-upload" 
             type="file" 
             accept=".xlsx, .xls" 

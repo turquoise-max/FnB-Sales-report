@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { addMultipleManualInputs } from '@/app/actions';
 import { Plus, Trash2, HelpCircle, PencilLine } from 'lucide-react';
+import HelpModal from '@/components/common/HelpModal';
 
 interface ManualInputRow {
   id: string;
@@ -85,9 +86,24 @@ export default function MultiRowInputForm() {
           </CardTitle>
           <CardDescription>배달 앱 외의 현금 매출이나 기타 항목을 직접 기록하세요.</CardDescription>
         </div>
-        <Button variant="ghost" size="icon" className="text-slate-400" title="입력 가이드 보기">
-          <HelpCircle className="h-5 w-5" />
-        </Button>
+        <HelpModal 
+          title="기타/수기 매출 입력 방법"
+          description="POS 관리자 페이지에서 엑셀 파일을 다운로드하여 업로드하세요."
+          steps={[
+            {
+              title: "기타/수기 매출 항목 입력",
+              description: "매출 기준일을 선택하고, 항목명과 총매출 및 실매출 금액을 입력합니다. '행 추가' 버튼을 눌러 여러 항목을 한 번에 입력할 수 있습니다."
+            },
+            {
+              title: "저장하기",
+              description: "입력이 완료되면 '저장' 버튼을 클릭하여 데이터를 저장합니다."
+            },
+            {
+              title: "주의사항",
+              description: "항목명 오타에 유의하시고, 금액은 숫자만 입력해주세요."
+            },
+          ]}
+        />
       </CardHeader>
       <CardContent className="px-0">
         <form onSubmit={handleSubmit} className="space-y-4">

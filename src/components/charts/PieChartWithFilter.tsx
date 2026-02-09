@@ -15,15 +15,16 @@ export default function PieChartWithFilter({ data }: SimplePieChartProps) {
     <div className="space-y-4">
       {/* 필터 제거됨 */}
       
-      <ResponsiveContainer width="100%" height={220}>
-        <PieChart margin={{ top: 40, right: 0, left: 0, bottom: 0 }}>
+      <ResponsiveContainer width="100%" height={240}>
+        <PieChart margin={{ top: 15, right: 0, left: 0, bottom: 0 }}>
           <Pie
             data={data}
             cx="50%"
-            cy="40%"
+            cy="45%"
+            innerRadius={55}
+            outerRadius={85}
+            paddingAngle={2}
             labelLine={false}
-            outerRadius={65}
-            fill="#8884d8"
             dataKey="value"
             nameKey="name"
           >
@@ -36,13 +37,11 @@ export default function PieChartWithFilter({ data }: SimplePieChartProps) {
             layout="horizontal" 
             verticalAlign="bottom" 
             align="center"
-            iconSize={10}
+            iconSize={8}
             wrapperStyle={{ 
-              fontSize: '11px',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              paddingTop: '10px'
+              fontSize: '10px',
+              paddingTop: '10px',
+              position: 'relative'
             }}
           />
         </PieChart>

@@ -23,9 +23,9 @@ export default async function DashboardPage({ searchParams }: PageProps) {
 
       <Tabs defaultValue="daily" className="w-full">
         <TabsList className="grid w-full grid-cols-3 mb-8">
-          <TabsTrigger value="daily">일별 분석</TabsTrigger>
-          <TabsTrigger value="weekly">주별 분석</TabsTrigger>
-          <TabsTrigger value="monthly">월별 분석</TabsTrigger>
+          <TabsTrigger value="daily">일자별 분석</TabsTrigger>
+          <TabsTrigger value="weekly">주간 분석</TabsTrigger>
+          <TabsTrigger value="monthly">월간 분석</TabsTrigger>
         </TabsList>
 
         <TabsContent value="daily">

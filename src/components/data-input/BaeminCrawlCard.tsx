@@ -5,7 +5,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { crawlBaeminData } from '@/app/actions';
-import { CloudDownload, HelpCircle } from 'lucide-react';
+import { CloudDownload } from 'lucide-react';
+import HelpModal from '@/components/common/HelpModal';
 
 import { DateRange } from 'react-day-picker';
 import { Calendar } from '@/components/ui/calendar';
@@ -57,9 +58,28 @@ export default function BaeminUpload() {
           </CardTitle>
           <CardDescription>배민 사장님광장 로그인 후 실시간 주문 내역을 가져옵니다.</CardDescription>
         </div>
-        <Button variant="ghost" size="icon" className="text-slate-400" title="수집 가이드 보기">
-          <HelpCircle className="h-5 w-5" />
-        </Button>
+        <HelpModal 
+          title="배민 데이터 수집 안내"
+          description="브라우저가 자동으로 배민 사장님광장에 접속하여 데이터를 수집합니다."
+          steps={[
+            {
+              title: "수집 기간 설정",
+              description: "데이터를 수집하고 싶은 시작일과 종료일을 선택합니다."
+            },
+            {
+              title: "자동 수집 시작",
+              description: "'수집 시작' 버튼을 클릭하면 서버에서 브라우저가 실행됩니다."
+            },
+            {
+              title: "데이터 가로채기",
+              description: "시스템이 자동으로 로그인 후 주문 내역 페이지로 이동하여 데이터를 추출합니다."
+            },
+            {
+              title: "주의사항",
+              description: "수집 중에는 창을 닫지 마세요. 주문 건수가 많을 경우 최대 1~2분이 소요될 수 있습니다."
+            }
+          ]}
+        />
       </CardHeader>
       <CardContent className="space-y-4 px-0">
         <div className="space-y-2">
